@@ -14,3 +14,20 @@
 #       methods: [:get, :post, :put, :patch, :delete, :options, :head]
 #   end
 # end
+
+# config/initializers/cors.rb
+Rails.application.config.middleware.insert_before 0, Rack::Cors do
+  allow do
+    # allow both localhost and 127.0.0.1 for safety
+    origins "http://localhost:3001", "http://127.0.0.1:3001"
+
+    resource "*",
+      headers: :any,
+      methods: %i[get post put patch delete options head],
+      expose: ["Authorization"]
+      # If you later use cookies (credentials), add:
+      # credentials: true
+  end
+end
+
+
