@@ -10,7 +10,32 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_02_044904) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_03_022144) do
+  create_table "billings", force: :cascade do |t|
+    t.date "start_date"
+    t.date "end_date"
+    t.decimal "amount"
+    t.date "due_date"
+    t.string "status"
+    t.integer "subscriber_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["subscriber_id"], name: "index_billings_on_subscriber_id"
+  end
+
+  create_table "payments", force: :cascade do |t|
+    t.date "payment_date"
+    t.decimal "amount"
+    t.string "method"
+    t.string "status"
+    t.string "attachment"
+    t.string "reference_number"
+    t.integer "billing_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["billing_id"], name: "index_payments_on_billing_id"
+  end
+
   create_table "subscribers", force: :cascade do |t|
     t.string "collector"
     t.string "zone"
@@ -33,4 +58,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_02_044904) do
     t.string "password_digest"
     t.boolean "requires_password_change"
   end
+
+  add_foreign_key "billings", "subscribers"
+  add_foreign_key "payments", "billings"
 end
