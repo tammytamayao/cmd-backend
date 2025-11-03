@@ -2,9 +2,8 @@ class Api::V1::SessionsController < ApplicationController
   before_action :authenticate_request!, only: :show
 
   def create
-    digits = params[:phone_number].to_s.gsub(/\D/, "")
-    phone  = digits.start_with?("+") ? digits : "+#{digits}"
-    subscriber = Subscriber.find_by(phone_number: phone)
+    normalized = Subscriber.normalize_raw_phone(params[:phone_number])
+    subscriber = Subscriber.find_by(phone_number: normalized)
 
     if subscriber&.authenticate(params[:password])
       token = JsonWebToken.encode({ sub: subscriber.id })
@@ -25,7 +24,6 @@ class Api::V1::SessionsController < ApplicationController
     end
   end
 
-  # GET /api/v1/session/me
   def show
     s = current_subscriber
     render json: {
