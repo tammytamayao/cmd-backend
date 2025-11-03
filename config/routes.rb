@@ -11,6 +11,9 @@ Rails.application.routes.draw do
     namespace :v1 do
       resources :subscribers, only: [:index, :show]
       resources :sessions, only: [:create, :destroy]
+      get "session/me", to: "sessions#show"
+      resources :billings, only: [:index]
+      resources :payments, only: [:index] 
     end
   end
 
