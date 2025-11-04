@@ -23,7 +23,11 @@ class Api::V1::BillingsController < ApplicationController
     end
 
     # --- Optional status filter ---
-    billings = billings.where(status: params[:status]) if params[:status].present?
+    if params[:status].present?
+      # Split by comma and match case-insensitively
+      statuses = params[:status].split(",").map(&:strip).map(&:capitalize)
+      billings = billings.where(status: statuses)
+    end
 
     # --- Simple pagination ---
     page     = (params[:page] || 1).to_i
