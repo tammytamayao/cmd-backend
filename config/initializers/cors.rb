@@ -18,15 +18,18 @@
 # config/initializers/cors.rb
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    # allow both localhost and 127.0.0.1 for safety
-    origins "http://localhost:3001", "http://127.0.0.1:3001"
+    origins "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "http://54.153.170.227:3000",
+            "http://54.153.170.227"
 
     resource "*",
       headers: :any,
       methods: %i[get post put patch delete options head],
-      expose: ["Authorization"]
-      # If you later use cookies (credentials), add:
-      # credentials: true
+      expose: [ "Authorization" ],
+      credentials: true
   end
 end
 
