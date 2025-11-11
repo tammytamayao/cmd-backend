@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_03_022144) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_11_030037) do
   create_table "billings", force: :cascade do |t|
     t.date "start_date"
     t.date "end_date"
@@ -26,7 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_03_022144) do
   create_table "payments", force: :cascade do |t|
     t.date "payment_date"
     t.decimal "amount"
-    t.string "method"
+    t.string "payment_method"
     t.string "status"
     t.string "attachment"
     t.string "reference_number"
@@ -34,6 +34,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_03_022144) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["billing_id"], name: "index_payments_on_billing_id"
+    t.index ["payment_method"], name: "index_payments_on_payment_method"
   end
 
   create_table "subscribers", force: :cascade do |t|
