@@ -13,7 +13,7 @@ Rails.application.routes.draw do
       resources :sessions, only: [:create, :destroy]
       get "session/me", to: "sessions#show"
       resources :billings, only: [:index]
-      resources :payments, only: [:index] 
+      resources :payments, only: [:index, :create]   # ⬅️ add :create
     end
   end
 

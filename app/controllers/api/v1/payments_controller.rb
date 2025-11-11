@@ -3,25 +3,11 @@ class Api::V1::PaymentsController < ApplicationController
   before_action :authenticate_request!
 
   # GET /api/v1/payments
-  #
-  # Query params (all optional):
-  #   ?year=2025
-  #     -or-
-  #   ?start_year=2024&end_year=2025
-  #
-  #   ?status=Confirmed|Processing|Failed
-  #   ?method=GCash|Cash|Bank%20Transfer
-  #
-  #   ?page=1&per_page=20   (per_page capped at 100)
-  #
-  # Notes:
-  # - Filters are by payment_date (the payment's actual date).
-  # - Only payments for the current_subscriber are returned.
   def index
     payments = Payment
       .joins(billing: :subscriber)
       .where(billings: { subscriber_id: current_subscriber.id })
-      .includes(:billing) # N+1 safe for serializer
+      .includes(:billing)
       .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
     # ---- Date window by payment_date ----
@@ -36,7 +22,9 @@ class Api::V1::PaymentsController < ApplicationController
 
     # ---- Optional filters ----
     payments = payments.where(status: params[:status]) if params[:status].present?
-    payments = payments.where(method: params[:method]) if params[:method].present?
+    if params[:payment_method].present?
+      payments = payments.where("LOWER(payment_method) = ?", params[:payment_method].downcase)
+    end
 
     # ---- Pagination ----
     page     = (params[:page] || 1).to_i
@@ -55,24 +43,57 @@ class Api::V1::PaymentsController < ApplicationController
     }
   end
 
+  # POST /api/v1/payments
+  # Expects FormData with:
+  # - billing_id (required)
+  # - payment_method: "GCASH" | "BANK_TRANSFER" | "CASH" (required)
+  # - gcash_reference / reference_number (optional)
+  # - receipt (ignored for now; attachment URL is hardcoded)
+  def create
+    billing = current_subscriber.billings.find_by(id: params[:billing_id])
+    return render json: { error: "Billing not found" }, status: :not_found unless billing
+
+    kind = params[:payment_method].to_s.upcase
+    method_label = case kind
+                   when "GCASH"         then "GCash"
+                   when "BANK_TRANSFER" then "Bank Transfer"
+                   when "CASH"          then "Cash"
+                   else "Cash"
+                   end
+
+    payment = Payment.new(
+      billing_id:       billing.id,
+      payment_date:     Time.zone.today,
+      amount:           billing.amount,   # trust server
+      status:           "Processing",
+      payment_method:   method_label,
+      reference_number: params[:gcash_reference].presence || params[:reference_number],
+      attachment:       "https://example.com/static-receipts/placeholder.jpg" # hardcoded for now
+    )
+
+    if payment.save
+      render json: { data: serialize_payment(payment) }, status: :created
+    else
+      render json: { error: payment.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
+  end
+
   private
 
-  # Shape expected by your frontend Payments tab
+  # Shape returned to the frontend
   def serialize_payment(p)
     {
       id: p.id,
-      payment_date: p.payment_date,         # e.g., "2025-06-15"
-      amount: p.amount.to_f,                # numeric
-      method: p.method,                     # "GCash" | "Cash" | "Bank Transfer"
-      status: p.status,                     # "Confirmed" | "Processing" | "Failed"
-      attachment: p.attachment,
+      payment_date: p.payment_date,
+      amount: p.amount.to_f,
+      payment_method: p.payment_method,   # FE expects payment_method now
+      status: p.status,
+      attachment: p.attachment,           # URL string (hardcoded)
       reference_number: p.reference_number,
       billing_id: p.billing_id,
-
-      # Useful context for display if needed:
       billing_period_start: p.billing&.start_date,
-      billing_period_end: p.billing&.end_date,
-      billing_status: p.billing&.status     # "Open" | "Closed" | "Overdue"
+      billing_period_end:   p.billing&.end_date,
+      billing_status:       p.billing&.status
     }
   end
 end
