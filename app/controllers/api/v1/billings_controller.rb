@@ -31,7 +31,7 @@ class Api::V1::BillingsController < ApplicationController
 
     # --- Simple pagination ---
     page     = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 12).to_i, 100].min
+    per_page = [ (params[:per_page] || 12).to_i, 100 ].min
     total    = billings.count
     billings = billings.offset((page - 1) * per_page).limit(per_page)
 

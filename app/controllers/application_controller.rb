@@ -11,11 +11,11 @@ class ApplicationController < ActionController::API
 
     unless @current_subscriber
       render json: { error: "Unauthorized" }, status: :unauthorized
-      return
+      nil
     end
   rescue StandardError
     render json: { error: "Unauthorized" }, status: :unauthorized
-    return
+    nil
   end
 
   def current_subscriber

@@ -44,7 +44,7 @@ puts "✅ Seeded 1 subscriber:"
 # === Billings & Payments ===
 puts "💳 Seeding billings & payments for 2024–2025 with proper status semantics..."
 
-payment_methods = ["GCash", "Bank Transfer", "Cash"]
+payment_methods = [ "GCash", "Bank Transfer", "Cash" ]
 
 (2024..2025).each do |year|
   start_month = 1
@@ -66,7 +66,7 @@ payment_methods = ["GCash", "Bank Transfer", "Cash"]
       else
         if month <= 7
           "Closed"
-        elsif [8, 9].include?(month)
+        elsif [ 8, 9 ].include?(month)
           "Overdue"
         else
           "Open"

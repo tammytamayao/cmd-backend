@@ -28,7 +28,7 @@ class Api::V1::PaymentsController < ApplicationController
 
     # ---- Pagination ----
     page     = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
     total    = payments.count
     payments = payments.offset((page - 1) * per_page).limit(per_page)
 
@@ -55,11 +55,11 @@ class Api::V1::PaymentsController < ApplicationController
 
     kind = params[:payment_method].to_s.upcase
     method_label = case kind
-                   when "GCASH"         then "GCash"
-                   when "BANK_TRANSFER" then "Bank Transfer"
-                   when "CASH"          then "Cash"
-                   else "Cash"
-                   end
+    when "GCASH"         then "GCash"
+    when "BANK_TRANSFER" then "Bank Transfer"
+    when "CASH"          then "Cash"
+    else "Cash"
+    end
 
     payment = Payment.new(
       billing_id:       billing.id,

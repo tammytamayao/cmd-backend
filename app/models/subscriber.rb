@@ -17,7 +17,7 @@ class Subscriber < ApplicationRecord
   def self.normalize_raw_phone(raw)
     s = raw.to_s
     # If already begins with '+' and digits, keep it
-    return s if s.start_with?('+') && s[1..].match?(/\A\d+\z/)
+    return s if s.start_with?("+") && s[1..].match?(/\A\d+\z/)
 
     digits = s.gsub(/\D/, "")
     case
