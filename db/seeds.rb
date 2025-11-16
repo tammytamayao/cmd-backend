@@ -58,17 +58,17 @@ payment_methods = ["GCash", "Bank Transfer", "Cash"]
     # Billing status logic:
     # - 2024 all Closed (paid)
     # - 2025 Jan–Jul Closed (paid)
-    # - 2025 Aug & Sep Overdue (unpaid)
+    # - 2025 Aug–Sep Overdue (unpaid)
     # - 2025 Oct Open (unpaid)
     billing_status =
       if year == 2024
         "Closed"
-      else # 2025
+      else
         if month <= 7
           "Closed"
-        elsif month == 8 || month == 9
+        elsif [8, 9].include?(month)
           "Overdue"
-        else # month == 10
+        else
           "Open"
         end
       end
@@ -87,10 +87,10 @@ payment_methods = ["GCash", "Bank Transfer", "Cash"]
       pay_method = payment_methods.sample
       Payment.create!(
         billing: billing,
-        payment_date: due_date + 1.day,      # paid the day after due window
+        payment_date: due_date + 1.day,      # paid the day after due date
         amount: subscriber.brate,
-        method: pay_method,
-        status: "Confirmed",                 # default; we'll set the latest to Processing below
+        payment_method: pay_method,          # ✅ renamed column
+        status: "Confirmed",
         attachment: "https://example.com/payment#{billing.id}.jpg",
         reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
       )
@@ -98,7 +98,7 @@ payment_methods = ["GCash", "Bank Transfer", "Cash"]
   end
 end
 
-# Mark the LATEST payment as Processing (everything else stays Confirmed)
+# Mark the latest payment as "Processing" to simulate an unverified one
 last_payment = Payment.order(:payment_date, :id).last
 if last_payment
   last_payment.update!(status: "Processing")
@@ -106,4 +106,3 @@ if last_payment
 end
 
 puts "✅ Done seeding billings & payments!"
-
