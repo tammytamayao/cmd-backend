@@ -1,0 +1,22 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      RAILS_LOG_TO_STDOUT: "true"
+    volumes:
+      - .:/rails
+      - /rails/node_modules
+      - storage:/rails/storage
+    command: bundle exec rails server -b 0.0.0.0
+    stdin_open: true
+    tty: true
+
+volumes:
+  storage:
