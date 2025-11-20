@@ -13,7 +13,17 @@ Rails.application.routes.draw do
       resources :sessions, only: [ :create, :destroy ]
       get "session/me", to: "sessions#show"
       resources :billings, only: [ :index ]
-      resources :payments, only: [ :index, :create ]   # ⬅️ add :create
+      resources :payments, only: [ :index, :create ] do
+        member do
+          get :receipt_url
+        end
+      end
+
+      # S3 file management routes
+      namespace :s3 do
+        get "health", to: "s3#health"
+        resources :files, only: [ :index, :create, :destroy ]
+      end
     end
   end
 end

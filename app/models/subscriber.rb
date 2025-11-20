@@ -1,7 +1,8 @@
 # app/models/subscriber.rb
 class Subscriber < ApplicationRecord
   has_secure_password
-   has_many :billings, dependent: :destroy
+  has_many :billings, dependent: :destroy
+  has_many :file_uploads, dependent: :destroy
 
   # Keep these in this order so phone is normalized before password generation
   before_validation :normalize_phone

@@ -43,15 +43,43 @@ class Api::V1::PaymentsController < ApplicationController
     }
   end
 
+  # GET /api/v1/payments/:id/receipt_url
+  # Generate a signed URL for downloading the payment receipt
+  def receipt_url
+    payment = Payment.joins(billing: :subscriber)
+                     .where(billings: { subscriber_id: current_subscriber.id })
+                     .find_by(id: params[:id])
+
+    return render json: { error: "Payment not found" }, status: :not_found unless payment
+
+    if payment.attachment.nil?
+      return render json: { error: "Receipt not found for this payment" }, status: :not_found
+    end
+
+    url_result = S3Helper.generate_signed_url(payment.attachment)
+
+    if url_result[:success]
+      render json: { data: url_result }, status: :ok
+    else
+      render json: { error: url_result[:error] }, status: :internal_server_error
+    end
+  end
+
   # POST /api/v1/payments
   # Expects FormData with:
   # - billing_id (required)
   # - payment_method: "GCASH" | "BANK_TRANSFER" | "CASH" (required)
+  # - receipt (required; file upload for payment receipt)
   # - gcash_reference / reference_number (optional)
-  # - receipt (ignored for now; attachment URL is hardcoded)
   def create
     billing = current_subscriber.billings.find_by(id: params[:billing_id])
     return render json: { error: "Billing not found" }, status: :not_found unless billing
+
+    # Validate receipt file is provided
+    receipt_file = params[:receipt]
+    if receipt_file.nil?
+      return render json: { error: "Receipt file is required" }, status: :bad_request
+    end
 
     kind = params[:payment_method].to_s.upcase
     method_label = case kind
@@ -61,19 +89,32 @@ class Api::V1::PaymentsController < ApplicationController
     else "Cash"
     end
 
+    # Upload receipt to S3
+    upload_result = S3Helper.upload_receipt(receipt_file, billing.id)
+
+    unless upload_result[:success]
+      return render json: { error: upload_result[:error] }, status: :bad_request
+    end
+
     payment = Payment.new(
-      billing_id:       billing.id,
-      payment_date:     Time.zone.today,
-      amount:           billing.amount,   # trust server
-      status:           "Processing",
-      payment_method:   method_label,
-      reference_number: params[:gcash_reference].presence || params[:reference_number],
-      attachment:       "https://example.com/static-receipts/placeholder.jpg" # hardcoded for now
+      billing_id:          billing.id,
+      payment_date:        Time.zone.today,
+      amount:              billing.amount,
+      status:              "Processing",
+      payment_method:      method_label,
+      reference_number:    params[:gcash_reference].presence || params[:reference_number],
+      attachment:          upload_result[:s3_key],
+      receipt_filename:    upload_result[:filename],
+      receipt_size:        upload_result[:size],
+      receipt_mime_type:   upload_result[:mime_type],
+      receipt_uploaded_at: upload_result[:uploaded_at]
     )
 
     if payment.save
       render json: { data: serialize_payment(payment) }, status: :created
     else
+      # Rollback S3 upload if database save fails
+      S3Helper.delete(upload_result[:s3_key])
       render json: { error: payment.errors.full_messages.to_sentence }, status: :unprocessable_entity
     end
   end
@@ -86,14 +127,20 @@ class Api::V1::PaymentsController < ApplicationController
       id: p.id,
       payment_date: p.payment_date,
       amount: p.amount.to_f,
-      payment_method: p.payment_method,   # FE expects payment_method now
+      payment_method: p.payment_method,
       status: p.status,
-      attachment: p.attachment,           # URL string (hardcoded)
+      attachment: p.attachment,               # S3 key
       reference_number: p.reference_number,
       billing_id: p.billing_id,
       billing_period_start: p.billing&.start_date,
-      billing_period_end:   p.billing&.end_date,
-      billing_status:       p.billing&.status
+      billing_period_end: p.billing&.end_date,
+      billing_status: p.billing&.status,
+      receipt: {
+        filename: p.receipt_filename,
+        size: p.receipt_size,
+        mime_type: p.receipt_mime_type,
+        uploaded_at: p.receipt_uploaded_at
+      }
     }
   end
 end
