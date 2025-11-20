@@ -22,7 +22,15 @@ Rails.application.routes.draw do
       # S3 file management routes
       scope :s3 do
         get "health", to: "s3#health"
-        resources :files, controller: "s3", only: [ :index, :create, :destroy ]
+        get "debug", to: "s3#debug"
+        resources :files, controller: "s3", only: [ :index, :show, :create, :destroy ] do
+          member do
+            get :download
+          end
+        end
+        scope :debug do
+          get "files/:id/download", to: "s3#debug_download"
+        end
       end
     end
   end
