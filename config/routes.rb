@@ -20,9 +20,9 @@ Rails.application.routes.draw do
       end
 
       # S3 file management routes
-      namespace :s3 do
+      scope :s3 do
         get "health", to: "s3#health"
-        resources :files, only: [ :index, :create, :destroy ]
+        resources :files, controller: "s3", only: [ :index, :create, :destroy ]
       end
     end
   end
