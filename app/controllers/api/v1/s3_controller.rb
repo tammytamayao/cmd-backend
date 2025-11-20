@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::S3Controller < ApplicationController
-  before_action :authenticate_request!, except: [ :health ]
+  before_action :authenticate_request!, except: [ :health, :debug, :debug_download ]
 
   # GET /api/v1/s3/health
   # Check S3 connectivity
