@@ -48,6 +48,51 @@ module S3Helper
       end
     end
 
+    # Upload a payment receipt to S3
+    # @param file [File] The receipt file to upload
+    # @param billing_id [Integer] The billing ID for folder organization
+    # @param metadata [Hash] Optional metadata
+    # @return [Hash] Upload result with S3 key and file metadata
+    def upload_receipt(file, billing_id, metadata = {})
+      raise S3Error, "File is required" if file.nil?
+      raise S3Error, "Billing ID is required" if billing_id.nil?
+
+      # Validate file type
+      allowed_types = [ "application/pdf", "image/png", "image/jpeg", "image/jpg" ]
+      unless allowed_types.include?(file.content_type)
+        return { success: false, error: "Invalid file type. Allowed: PDF, PNG, JPG" }
+      end
+
+      # Validate file size (max 5MB)
+      max_size = 5.megabytes
+      if file.size > max_size
+        return { success: false, error: "File size exceeds 5MB limit" }
+      end
+
+      key = generate_receipt_key(billing_id, file.original_filename)
+
+      begin
+        client = aws_s3_client
+        client.put_object(
+          bucket: bucket_name,
+          key: key,
+          body: file.read,
+          content_type: file.content_type || "application/octet-stream"
+        )
+
+        {
+          success: true,
+          s3_key: key,
+          filename: file.original_filename,
+          size: file.size,
+          mime_type: file.content_type,
+          uploaded_at: Time.current
+        }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+    end
+
     # Delete a file from S3
     # @param s3_key [String] The S3 key/path of the file
     # @return [Hash] Deletion result
@@ -197,6 +242,12 @@ module S3Helper
       "uploads/#{subscriber_id}/#{Time.current.to_i}_#{sanitized_filename}"
     end
 
+    # Generate S3 key for payment receipt storage
+    def generate_receipt_key(billing_id, filename)
+      sanitized_filename = File.basename(filename).gsub(/[^\w.-]/, "_")
+      "uploads/payments/#{billing_id}/#{Time.current.to_i}_#{sanitized_filename}"
+    end
+
     # Extract filename from S3 key
     def extract_filename(s3_key)
       s3_key.split("/").last
@@ -206,6 +257,31 @@ module S3Helper
     def extract_subscriber_id(s3_key)
       parts = s3_key.split("/")
       parts[1] if parts.length >= 3 && parts[0] == "uploads"
+    end
+
+    # Generate a signed URL for temporary S3 access (expires in 7 days)
+    # @param s3_key [String] The S3 key/path of the file
+    # @param expires_in [Integer] Expiration time in seconds (default: 7 days)
+    # @return [Hash] Signed URL or error
+    def generate_signed_url(s3_key, expires_in = 7.days.to_i)
+      raise S3Error, "S3 key is required" if s3_key.nil? || s3_key.empty?
+
+      begin
+        client = aws_s3_client
+        url = client.get_object_url(
+          bucket: bucket_name,
+          key: s3_key,
+          expires_in: expires_in
+        )
+
+        {
+          success: true,
+          signed_url: url,
+          expires_at: (Time.current + expires_in).iso8601
+        }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
     end
   end
 end
