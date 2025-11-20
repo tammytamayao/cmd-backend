@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
-module Api
-  module V1
-    class S3Controller < ApplicationController
-      before_action :authenticate_request!, except: [ :health ]
+class Api::V1::S3Controller < ApplicationController
+  before_action :authenticate_request!, except: [ :health ]
 
       # GET /api/v1/s3/health
       # Check S3 connectivity
@@ -123,5 +121,4 @@ module Api
         end
       end
     end
-  end
 end
