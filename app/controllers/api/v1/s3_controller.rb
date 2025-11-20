@@ -10,6 +10,52 @@ class Api::V1::S3Controller < ApplicationController
     render json: result, status: :ok
   end
 
+  # GET /api/v1/s3/debug
+  # Debug endpoint - list all files without auth (for testing only)
+  def debug
+    files_result = S3Helper.list_all_files(max_keys: 1000)
+
+    if files_result[:success]
+      render json: {
+        message: "Debug - All S3 files",
+        data: files_result[:files],
+        count: files_result[:count],
+        is_truncated: files_result[:is_truncated]
+      }, status: :ok
+    else
+      render json: { error: files_result[:error] }, status: :internal_server_error
+    end
+  end
+
+  # GET /api/v1/s3/files/:id
+  # Get details about a specific file
+  def show
+    file_upload = FileUpload.find_by(id: params[:id])
+
+    if file_upload.nil?
+      return render json: { error: "File not found" }, status: :not_found
+    end
+
+    file_info = S3Helper.get_file(file_upload.s3_key)
+
+    if file_info[:success]
+      render json: {
+        data: {
+          id: file_upload.id,
+          s3_key: file_upload.s3_key,
+          filename: file_upload.original_filename,
+          size: file_upload.file_size,
+          mime_type: file_upload.mime_type,
+          uploaded_at: file_upload.created_at,
+          last_modified: file_info[:last_modified],
+          etag: file_info[:etag]
+        }
+      }, status: :ok
+    else
+      render json: { error: file_info[:error] }, status: :internal_server_error
+    end
+  end
+
   # GET /api/v1/s3/files
   # List uploaded files with optional filtering
   def index
@@ -102,6 +148,30 @@ class Api::V1::S3Controller < ApplicationController
     end
   end
 
+  # GET /api/v1/s3/files/:id/download
+  # Download file blob
+  def download
+    file_upload = FileUpload.find_by(id: params[:id])
+
+    if file_upload.nil?
+      return render json: { error: "File not found" }, status: :not_found
+    end
+
+    download_file(file_upload)
+  end
+
+  # GET /api/v1/s3/debug/files/:id/download
+  # Debug endpoint - download file blob without auth
+  def debug_download
+    file_upload = FileUpload.find_by(id: params[:id])
+
+    if file_upload.nil?
+      return render json: { error: "File not found" }, status: :not_found
+    end
+
+    download_file(file_upload)
+  end
+
   # DELETE /api/v1/s3/files/:id
   # Delete a file from S3
   def destroy
@@ -118,6 +188,33 @@ class Api::V1::S3Controller < ApplicationController
       render json: { message: "File deleted successfully" }, status: :ok
     else
       render json: { error: deletion_result[:error] }, status: :internal_server_error
+    end
+  end
+
+  private
+
+  def download_file(file_upload)
+    begin
+      client = Aws::S3::Client.new(
+        access_key_id: ENV["AWS_ACCESS_KEY_ID"],
+        secret_access_key: ENV["AWS_SECRET_ACCESS_KEY"],
+        region: ENV["AWS_S3_REGION"] || "us-east-1"
+      )
+
+      response = client.get_object(
+        bucket: ENV["AWS_S3_BUCKET"],
+        key: file_upload.s3_key
+      )
+
+      send_data(
+        response.body.read,
+        filename: file_upload.original_filename,
+        type: file_upload.mime_type || "application/octet-stream",
+        disposition: "attachment"
+      )
+    rescue StandardError => e
+      render json: { error: "Failed to download file: #{e.message}" },
+             status: :internal_server_error
     end
   end
 end
