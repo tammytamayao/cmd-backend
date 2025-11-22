@@ -51,6 +51,7 @@ The app will be accessible at `http://localhost:3000`
 In a new terminal, populate the database with test data:
 
 ```bash
+sudo docker compose exec app bundle exec rails db:migrate
 sudo docker compose exec app bundle exec rails db:seed
 ```
 
