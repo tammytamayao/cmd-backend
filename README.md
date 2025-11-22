@@ -60,6 +60,24 @@ This creates:
 - Billing records for 2024-2025
 - Sample payment data
 
+To make an overdue subscription, use this:
+
+```bash
+sudo docker compose exec app bundle exec rails console
+```
+
+```rails
+subscriber = Subscriber.find_by(phone_number: "+639957795446")
+Billing.create!(
+  subscriber_id: subscriber.id,
+  start_date: Date.new(2025, 11, 1),
+  end_date: Date.new(2025, 11, 30),
+  amount: 2299,  # or use subscriber.brate
+  due_date: Date.new(2025, 12, 14),
+  status: "Overdue"
+)
+```
+
 ### 5. Login and Test
 
 Use the test credentials:
