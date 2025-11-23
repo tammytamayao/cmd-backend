@@ -33,5 +33,11 @@ Rails.application.routes.draw do
         end
       end
     end
+
+    # Admin endpoints (currently unauthenticated for debugging)
+    # TODO: Implement proper authentication for admin endpoints in production
+    namespace :admin do
+      resources :payments, only: [ :index, :create, :show ]
+    end
   end
 end
