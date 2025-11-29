@@ -109,3 +109,8 @@ if last_payment
 end
 
 puts "✅ Done seeding billings & payments!"
+
+puts "🌱 Loading subscriber seeds..."
+load Rails.root.join("db/seeds_subscribers.rb")
+load Rails.root.join("db/seeds_admins.rb")
+puts "✅ All seeds loaded!"
