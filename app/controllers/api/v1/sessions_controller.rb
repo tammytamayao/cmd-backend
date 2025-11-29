@@ -6,7 +6,8 @@ class Api::V1::SessionsController < ApplicationController
     subscriber = Subscriber.find_by(phone_number: normalized)
 
     if subscriber&.authenticate(params[:password])
-      token = JsonWebToken.encode({ sub: subscriber.id })
+      token = JsonWebToken.encode({ sub: subscriber.id, type: "subscriber" })
+
       render json: {
         token: token,
         subscriber: {
@@ -42,7 +43,6 @@ class Api::V1::SessionsController < ApplicationController
       due_on: Date.today.end_of_month,
     }
   end
-
 
   def destroy
     head :no_content
