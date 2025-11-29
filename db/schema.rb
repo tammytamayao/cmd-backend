@@ -10,7 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_20_100712) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_29_143612) do
+  create_table "admin_users", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "role", default: "billing_officer", null: false
+    t.string "password_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_admin_users_on_email", unique: true
+    t.index ["role"], name: "index_admin_users_on_role"
+  end
+
   create_table "billings", force: :cascade do |t|
     t.date "start_date"
     t.date "end_date"
