@@ -28,18 +28,21 @@ class Api::V1::SessionsController < ApplicationController
     s = current_subscriber
     render json: {
       id: s.id,
+      zone: s.zone,
       first_name: s.first_name,
       last_name: s.last_name,
       full_name: "#{s.first_name} #{s.last_name}",
       phone_number: s.phone_number,
+      date_installed: s.date_installed,
       plan: s.plan,
       brate: s.brate,
       package_speed: s.package_speed,
       serial_number: s.serial_number,
       amount_due: s.brate,
-      due_on: Date.today.end_of_month
+      due_on: Date.today.end_of_month,
     }
   end
+
 
   def destroy
     head :no_content

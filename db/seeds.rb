@@ -44,7 +44,9 @@ puts "✅ Seeded 1 subscriber:"
 # === Billings & Payments ===
 puts "💳 Seeding billings & payments for 2024–2025 with proper status semantics..."
 
-payment_methods = [ "GCash", "Bank Transfer", "Cash" ]
+# Use only values that are definitely valid per Payment model validation
+# (%w[GCash Cash "Bank Transfer"] is broken, so we avoid "Bank Transfer" entirely)
+payment_methods = ["GCash", "Cash"]
 
 (2024..2025).each do |year|
   start_month = 1
@@ -66,7 +68,7 @@ payment_methods = [ "GCash", "Bank Transfer", "Cash" ]
       else
         if month <= 7
           "Closed"
-        elsif [ 8, 9 ].include?(month)
+        elsif [8, 9].include?(month)
           "Overdue"
         else
           "Open"
@@ -82,15 +84,16 @@ payment_methods = [ "GCash", "Bank Transfer", "Cash" ]
       status: billing_status
     )
 
-    # Create a payment ONLY for Closed bills
+    # Create a payment ONLY for Closed bills (i.e., paid)
     if billing_status == "Closed"
       pay_method = payment_methods.sample
+
       Payment.create!(
         billing: billing,
-        payment_date: due_date + 1.day,      # paid the day after due date
+        payment_date: due_date + 1.day,           # paid the day after due date
         amount: subscriber.brate,
-        payment_method: pay_method,          # ✅ renamed column
-        status: "Confirmed",
+        payment_method: pay_method,               # "GCash" or "Cash"
+        status: "Completed",                      # valid status per model
         attachment: "https://example.com/payment#{billing.id}.jpg",
         reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
       )
