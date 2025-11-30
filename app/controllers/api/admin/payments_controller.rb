@@ -7,7 +7,7 @@ class Api::Admin::PaymentsController < ApplicationController
     Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
 
     payments = Payment
-      .includes(:billing)
+      .includes(billing: :subscriber) # <-- preload subscriber
       .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
     # ---- Date window by payment_date ----
@@ -28,7 +28,7 @@ class Api::Admin::PaymentsController < ApplicationController
 
     # ---- Pagination ----
     page     = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    per_page = 10                             # 👈 fixed to 10 per page
     total    = payments.count
     payments = payments.offset((page - 1) * per_page).limit(per_page)
 
@@ -47,7 +47,7 @@ class Api::Admin::PaymentsController < ApplicationController
   def show
     Rails.logger.info("[ADMIN] #{current_admin.email} fetching payment #{params[:id]}")
 
-    payment = Payment.find_by(id: params[:id])
+    payment = Payment.includes(billing: :subscriber).find_by(id: params[:id])
     return render json: { error: "Payment not found" }, status: :not_found unless payment
 
     render json: { data: serialize_payment(payment) }, status: :ok
@@ -106,6 +106,8 @@ class Api::Admin::PaymentsController < ApplicationController
   private
 
   def serialize_payment(p)
+    subscriber = p.billing&.subscriber
+
     {
       id: p.id,
       payment_date: p.payment_date,
@@ -118,6 +120,12 @@ class Api::Admin::PaymentsController < ApplicationController
       billing_period_start: p.billing&.start_date,
       billing_period_end: p.billing&.end_date,
       billing_status: p.billing&.status,
+      subscriber: {
+      id: subscriber&.id,
+      serial_number: subscriber&.serial_number,
+      first_name: subscriber&.first_name,
+      last_name: subscriber&.last_name,
+      },
       receipt: {
         filename: p.receipt_filename,
         size: p.receipt_size,
