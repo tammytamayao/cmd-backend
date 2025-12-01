@@ -1,13 +1,3 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
-
 # db/seeds.rb
 
 puts "🧹 Clearing old data..."
@@ -15,7 +5,7 @@ Payment.destroy_all
 Billing.destroy_all
 Subscriber.destroy_all
 
-# === Subscriber ===
+# === Subscriber: PRINCESS CONNIE TAMAYAO ===
 phone = "09957795446"
 last_name = "TAMAYAO"
 
@@ -39,41 +29,44 @@ subscriber = Subscriber.create!(
   requires_password_change: true
 )
 
-puts "✅ Seeded 1 subscriber:"
+puts "✅ Seeded 1 subscriber (TAMAYAO)"
 
 # === Billings & Payments ===
 puts "💳 Seeding billings & payments for 2024–2025 with proper status semantics..."
 
 # Use only values that are definitely valid per Payment model validation
-# (%w[GCash Cash "Bank Transfer"] is broken, so we avoid "Bank Transfer" entirely)
+# (we avoid "Bank Transfer" entirely)
 payment_methods = [ "GCash", "Cash" ]
 
+# Rules:
+# - All subscribers (including TAMAYAO):
+#   - 2024: all months Closed (paid)
+#   - 2025 Jan–Nov: Closed (paid)
+#   - 2025 Dec: Open (unpaid)
+# - Special overdue months:
+#   - TAMAYAO: 2025 Sep & Oct => Overdue (unpaid)
 (2024..2025).each do |year|
   start_month = 1
-  end_month   = (year == 2025 ? 10 : 12)
+  end_month   = 12  # go up to December 2025
 
   (start_month..end_month).each do |month|
     start_date = Date.new(year, month, 1)
     end_date   = start_date.end_of_month
     due_date   = end_date + 14.days
 
-    # Billing status logic:
-    # - 2024 all Closed (paid)
-    # - 2025 Jan–Jul Closed (paid)
-    # - 2025 Aug–Sep Overdue (unpaid)
-    # - 2025 Oct Open (unpaid)
+    # Default status: everything paid (Closed) except December 2025
     billing_status =
-      if year == 2024
+      if year == 2024 || (year == 2025 && month <= 11)
         "Closed"
       else
-        if month <= 7
-          "Closed"
-        elsif [ 8, 9 ].include?(month)
-          "Overdue"
-        else
-          "Open"
-        end
+        # year == 2025 && month == 12
+        "Open"   # unpaid current month
       end
+
+    # Special rule for TAMAYAO: 2025 Sep & Oct are Overdue (unpaid)
+    if year == 2025 && [ 9, 10 ].include?(month)
+      billing_status = "Overdue"
+    end
 
     billing = Billing.create!(
       subscriber: subscriber,
@@ -84,7 +77,7 @@ payment_methods = [ "GCash", "Cash" ]
       status: billing_status
     )
 
-    # Create a payment ONLY for Closed bills (i.e., paid)
+    # Create a payment ONLY for Closed (paid) bills
     if billing_status == "Closed"
       pay_method = payment_methods.sample
 
@@ -108,7 +101,7 @@ if last_payment
   puts "🔄 Marked last payment (ID #{last_payment.id}) as Processing"
 end
 
-puts "✅ Done seeding billings & payments!"
+puts "✅ Done seeding billings & payments for TAMAYAO!"
 
 puts "🌱 Loading subscriber seeds..."
 load Rails.root.join("db/seeds_subscribers.rb")

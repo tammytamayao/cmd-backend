@@ -2,10 +2,8 @@
 require "date"
 require "securerandom"
 
-puts "🧹 Clearing subscriber-related data..."
-Payment.destroy_all
-Billing.destroy_all
-Subscriber.destroy_all
+puts "📌 Seeding subscribers from SUBSCRIBER_DATA..."
+# NOTE: We no longer destroy data here; that is handled in db/seeds.rb
 
 SUBSCRIBER_DATA = [
   {
@@ -352,11 +350,13 @@ SUBSCRIBER_DATA = [
   }
 ]
 
-puts "📌 Seeding #{SUBSCRIBER_DATA.length} subscribers..."
 payment_methods = [ "GCash", "Cash" ]
 
+# Special subscribers who should have overdue months (unpaid) in 2025:
+# - PINTOCAN (serial 118445-240) : Sep & Oct 2025 overdue
+# - VINASOY (serial 121988-250)  : Sep & Oct 2025 overdue
 SPECIAL_UNPAID = {
-  "118060-240" => [ "Sep", "Oct" ],   # PINTOCAN
+  "118060-240" => [ "Sep", "Oct" ],   # MALUYO (you can adjust label if needed)
   "121988-250" => [ "Sep", "Oct" ]    # VINASOY
 }
 
@@ -388,35 +388,36 @@ SUBSCRIBER_DATA.each do |rec|
   puts "👤 Seeded Subscriber: #{subscriber.last_name} #{subscriber.first_name} (#{subscriber.serial_number})"
 
   # === BILLINGS ===
+  # Rules:
+  # - All subscribers:
+  #   - 2024: all months Closed (paid)
+  #   - 2025 Jan–Nov: Closed (paid)
+  #   - 2025 Dec: Open (unpaid)
+  # - SPECIAL_UNPAID subscribers:
+  #   - 2025 Sep & Oct: Overdue (unpaid)
   (2024..2025).each do |year|
-    end_month = (year == 2025 ? 10 : 12)
+    end_month = 12  # always up to December
 
     (1..end_month).each do |month|
       start_date = Date.new(year, month, 1)
       end_date   = start_date.end_of_month
       due_date   = end_date + 14
-
       month_short = month_name(start_date)
 
-      # Default billing status logic
+      # Default billing status
       billing_status =
-        if year == 2024
+        if year == 2024 || (year == 2025 && month <= 11)
           "Closed"
         else
-          if month <= 7
-            "Closed"
-          elsif [ 8, 9 ].include?(month)
-            "Overdue"
-          else
-            "Open"
-          end
+          # year == 2025 && month == 12
+          "Open"
         end
 
-      # === Apply special rule for PINTOCAN + VINASOY ===
-      if SPECIAL_UNPAID.key?(rec[:serial_number]) && SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
+      # Special overdue months for listed subscribers: Sep & Oct 2025
+      if year == 2025 &&
+         SPECIAL_UNPAID.key?(rec[:serial_number]) &&
+         SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
         billing_status = "Overdue"
-      elsif month_short == "Oct" && year == 2025
-        billing_status = "Open" unless SPECIAL_UNPAID[rec[:serial_number]]&.include?("Oct")
       end
 
       billing = Billing.create!(
