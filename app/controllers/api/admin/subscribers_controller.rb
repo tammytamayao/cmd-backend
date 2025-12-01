@@ -1,4 +1,3 @@
-# app/controllers/api/admin/subscribers_controller.rb
 class Api::Admin::SubscribersController < ApplicationController
   before_action :authenticate_admin!
 
@@ -6,11 +5,9 @@ class Api::Admin::SubscribersController < ApplicationController
   def index
     Rails.logger.info("[ADMIN] #{current_admin.email} listing subscribers dashboard")
 
-    # Period: current month by default
     period_start = params[:start_date].present? ? Date.parse(params[:start_date]) : Date.current.beginning_of_month
     period_end   = params[:end_date].present? ? Date.parse(params[:end_date]) : Date.current.end_of_month
 
-    # ---- Stats ----
     total_revenue = Payment
       .where(status: "Completed", payment_date: period_start..period_end)
       .sum(:amount)
@@ -25,7 +22,6 @@ class Api::Admin::SubscribersController < ApplicationController
       .where(date_installed: period_start..period_end)
       .count
 
-    # ---- Subscribers list ----
     subscribers = Subscriber
       .includes(:billings)
       .order(:last_name, :first_name)
@@ -56,8 +52,6 @@ class Api::Admin::SubscribersController < ApplicationController
   private
 
   def serialize_subscriber(s)
-    latest_billing = s.billings.order(due_date: :desc).first
-
     {
       id: s.id,
       serial_number: s.serial_number,
@@ -67,9 +61,9 @@ class Api::Admin::SubscribersController < ApplicationController
       zone: s.zone,
       plan: s.plan,
       brate: s.brate,
-      latest_billing_amount: latest_billing&.amount&.to_f,
-      latest_billing_due_date: latest_billing&.due_date,
-      latest_billing_status: latest_billing&.status
+      package: s.package,
+      package_speed: s.package_speed,
+      date_installed: s.date_installed
     }
   end
 end
