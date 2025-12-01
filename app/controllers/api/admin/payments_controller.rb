@@ -1,17 +1,13 @@
 # app/controllers/api/admin/payments_controller.rb
 class Api::Admin::PaymentsController < ApplicationController
-  # TODO: Add authentication for admin endpoints in production.
-  # Currently unauthenticated for debugging purposes only.
-  # When implementing authentication, add: before_action :authenticate_request!
+  before_action :authenticate_admin!
 
   # GET /api/admin/payments
-  # TODO: Implement authentication for admin endpoints in production.
-  # This endpoint is currently unauthenticated and should require admin privileges.
   def index
-    Rails.logger.warn("[ADMIN] Unauthenticated access to list payments")
+    Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
 
     payments = Payment
-      .includes(:billing)
+      .includes(billing: :subscriber) # <-- preload subscriber
       .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
     # ---- Date window by payment_date ----
@@ -32,7 +28,7 @@ class Api::Admin::PaymentsController < ApplicationController
 
     # ---- Pagination ----
     page     = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    per_page = 10                             # 👈 fixed to 10 per page
     total    = payments.count
     payments = payments.offset((page - 1) * per_page).limit(per_page)
 
@@ -48,27 +44,18 @@ class Api::Admin::PaymentsController < ApplicationController
   end
 
   # GET /api/admin/payments/:id
-  # TODO: Implement authentication for admin endpoints in production.
-  # This endpoint is currently unauthenticated and should require admin privileges.
   def show
-    Rails.logger.warn("[ADMIN] Unauthenticated access to get payment #{params[:id]}")
+    Rails.logger.info("[ADMIN] #{current_admin.email} fetching payment #{params[:id]}")
 
-    payment = Payment.find_by(id: params[:id])
+    payment = Payment.includes(billing: :subscriber).find_by(id: params[:id])
     return render json: { error: "Payment not found" }, status: :not_found unless payment
 
     render json: { data: serialize_payment(payment) }, status: :ok
   end
 
   # POST /api/admin/payments
-  # TODO: Implement authentication for admin endpoints in production.
-  # This endpoint is currently unauthenticated and should require admin privileges.
-  # Expects FormData with:
-  # - billing_id (required)
-  # - payment_method: "GCASH" | "BANK_TRANSFER" | "CASH" (required)
-  # - receipt (required; file upload for payment receipt)
-  # - gcash_reference / reference_number (optional)
   def create
-    Rails.logger.warn("[ADMIN] Unauthenticated access to create payment - billing_id: #{params[:billing_id]}")
+    Rails.logger.info("[ADMIN] #{current_admin.email} creating payment - billing_id: #{params[:billing_id]}")
 
     billing = Billing.find_by(id: params[:billing_id])
     return render json: { error: "Billing not found" }, status: :not_found unless billing
@@ -111,7 +98,6 @@ class Api::Admin::PaymentsController < ApplicationController
     if payment.save
       render json: { data: serialize_payment(payment) }, status: :created
     else
-      # Rollback S3 upload if database save fails
       S3Helper.delete(upload_result[:s3_key])
       render json: { error: payment.errors.full_messages.to_sentence }, status: :unprocessable_entity
     end
@@ -119,20 +105,27 @@ class Api::Admin::PaymentsController < ApplicationController
 
   private
 
-  # Shape returned to the frontend
   def serialize_payment(p)
+    subscriber = p.billing&.subscriber
+
     {
       id: p.id,
       payment_date: p.payment_date,
       amount: p.amount.to_f,
       payment_method: p.payment_method,
       status: p.status,
-      attachment: p.attachment,               # S3 key
+      attachment: p.attachment,
       reference_number: p.reference_number,
       billing_id: p.billing_id,
       billing_period_start: p.billing&.start_date,
       billing_period_end: p.billing&.end_date,
       billing_status: p.billing&.status,
+      subscriber: {
+      id: subscriber&.id,
+      serial_number: subscriber&.serial_number,
+      first_name: subscriber&.first_name,
+      last_name: subscriber&.last_name
+      },
       receipt: {
         filename: p.receipt_filename,
         size: p.receipt_size,

@@ -6,7 +6,8 @@ class Api::V1::SessionsController < ApplicationController
     subscriber = Subscriber.find_by(phone_number: normalized)
 
     if subscriber&.authenticate(params[:password])
-      token = JsonWebToken.encode({ sub: subscriber.id })
+      token = JsonWebToken.encode({ sub: subscriber.id, type: "subscriber" })
+
       render json: {
         token: token,
         subscriber: {
@@ -28,10 +29,12 @@ class Api::V1::SessionsController < ApplicationController
     s = current_subscriber
     render json: {
       id: s.id,
+      zone: s.zone,
       first_name: s.first_name,
       last_name: s.last_name,
       full_name: "#{s.first_name} #{s.last_name}",
       phone_number: s.phone_number,
+      date_installed: s.date_installed,
       plan: s.plan,
       brate: s.brate,
       package_speed: s.package_speed,
