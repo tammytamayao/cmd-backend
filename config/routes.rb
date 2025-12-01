@@ -39,9 +39,9 @@ Rails.application.routes.draw do
     namespace :admin do
       post "login", to: "sessions#create"
 
-      resources :payments,    only: [:index, :show, :create]
-      resources :subscribers, only: [:index, :show]
-      resources :billings,    only: [:index, :show]
+      resources :payments,    only: [ :index, :show, :create ]
+      resources :subscribers, only: [ :index, :show ]
+      resources :billings,    only: [ :index, :show ]
     end
   end
 end

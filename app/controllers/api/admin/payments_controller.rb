@@ -124,7 +124,7 @@ class Api::Admin::PaymentsController < ApplicationController
       id: subscriber&.id,
       serial_number: subscriber&.serial_number,
       first_name: subscriber&.first_name,
-      last_name: subscriber&.last_name,
+      last_name: subscriber&.last_name
       },
       receipt: {
         filename: p.receipt_filename,

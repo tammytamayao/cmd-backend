@@ -353,11 +353,11 @@ SUBSCRIBER_DATA = [
 ]
 
 puts "📌 Seeding #{SUBSCRIBER_DATA.length} subscribers..."
-payment_methods = ["GCash", "Cash"]
+payment_methods = [ "GCash", "Cash" ]
 
 SPECIAL_UNPAID = {
-  "118060-240" => ["Sep", "Oct"],   # PINTOCAN
-  "121988-250" => ["Sep", "Oct"]    # VINASOY
+  "118060-240" => [ "Sep", "Oct" ],   # PINTOCAN
+  "121988-250" => [ "Sep", "Oct" ]    # VINASOY
 }
 
 def month_name(date)
@@ -405,7 +405,7 @@ SUBSCRIBER_DATA.each do |rec|
         else
           if month <= 7
             "Closed"
-          elsif [8, 9].include?(month)
+          elsif [ 8, 9 ].include?(month)
             "Overdue"
           else
             "Open"

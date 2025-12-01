@@ -27,7 +27,7 @@ class Api::Admin::SubscribersController < ApplicationController
       .order(:last_name, :first_name)
 
     page     = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 10).to_i, 100].min
+    per_page = [ (params[:per_page] || 10).to_i, 100 ].min
     total    = subscribers.count
     subscribers = subscribers.offset((page - 1) * per_page).limit(per_page)
 

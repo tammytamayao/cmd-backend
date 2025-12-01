@@ -16,7 +16,7 @@ class ApplicationController < ActionController::API
     sub_id = payload["sub"] || payload[:sub]
     @current_subscriber = Subscriber.find_by(id: sub_id)
 
-    return unauthorized! unless @current_subscriber
+    unauthorized! unless @current_subscriber
   rescue StandardError
     unauthorized!
   end
@@ -32,12 +32,12 @@ class ApplicationController < ActionController::API
     payload = JsonWebToken.decode(token) || {}
 
     token_type = payload["type"] || payload[:type]
-    return unauthorized! unless token_type == "admin"
+    unauthorized! unless token_type == "admin"
 
     admin_id = payload["sub"] || payload[:sub]
     @current_admin = AdminUser.find_by(id: admin_id)
 
-    return unauthorized! unless @current_admin
+    unauthorized! unless @current_admin
   rescue StandardError
     unauthorized!
   end
@@ -46,7 +46,7 @@ class ApplicationController < ActionController::API
     @current_admin
   end
 
-# ========= COMMON =========
+  # ========= COMMON =========
   def unauthorized!
     render json: { error: "Unauthorized" }, status: :unauthorized
     nil

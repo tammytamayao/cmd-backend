@@ -46,7 +46,7 @@ puts "💳 Seeding billings & payments for 2024–2025 with proper status semant
 
 # Use only values that are definitely valid per Payment model validation
 # (%w[GCash Cash "Bank Transfer"] is broken, so we avoid "Bank Transfer" entirely)
-payment_methods = ["GCash", "Cash"]
+payment_methods = [ "GCash", "Cash" ]
 
 (2024..2025).each do |year|
   start_month = 1
@@ -68,7 +68,7 @@ payment_methods = ["GCash", "Cash"]
       else
         if month <= 7
           "Closed"
-        elsif [8, 9].include?(month)
+        elsif [ 8, 9 ].include?(month)
           "Overdue"
         else
           "Open"
