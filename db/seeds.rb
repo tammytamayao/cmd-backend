@@ -6,10 +6,10 @@ Billing.destroy_all
 Subscriber.destroy_all
 
 # === Subscriber: PRINCESS CONNIE TAMAYAO ===
-phone = "09957795446"
+phone     = "09957795446"
 last_name = "TAMAYAO"
 
-subscriber = Subscriber.create!(
+tamayao = Subscriber.create!(
   collector: "MERVIN PEREZ",
   zone: "DANGAN RM",
   date_installed: "2021-01-15",
@@ -31,77 +31,64 @@ subscriber = Subscriber.create!(
 
 puts "✅ Seeded 1 subscriber (TAMAYAO)"
 
-# === Billings & Payments ===
-puts "💳 Seeding billings & payments for 2024–2025 with proper status semantics..."
+puts "💳 Seeding billings & payments for TAMAYAO (2024–2025)..."
 
-# Use only values that are definitely valid per Payment model validation
-# (we avoid "Bank Transfer" entirely)
 payment_methods = [ "GCash", "Cash" ]
 
-# Rules:
-# - All subscribers (including TAMAYAO):
-#   - 2024: all months Closed (paid)
-#   - 2025 Jan–Nov: Closed (paid)
-#   - 2025 Dec: Open (unpaid)
-# - Special overdue months:
-#   - TAMAYAO: 2025 Sep & Oct => Overdue (unpaid)
+# Rules for TAMAYAO:
+# - 2024: all months Closed (paid)
+# - 2025 Jan–Sep: Closed (paid)
+# - 2025 Oct: Overdue (unpaid)
+# - 2025 Nov: Open (unpaid)
+# - 2025 Dec: no billing created
 (2024..2025).each do |year|
-  start_month = 1
-  end_month   = 12  # go up to December 2025
+  # 2024: Jan–Dec; 2025: Jan–Nov
+  end_month = (year == 2024 ? 12 : 11)
 
-  (start_month..end_month).each do |month|
+  (1..end_month).each do |month|
     start_date = Date.new(year, month, 1)
     end_date   = start_date.end_of_month
     due_date   = end_date + 14.days
 
-    # Default status: everything paid (Closed) except December 2025
     billing_status =
-      if year == 2024 || (year == 2025 && month <= 11)
+      if year == 2024
         "Closed"
-      else
-        # year == 2025 && month == 12
-        "Open"   # unpaid current month
+      else # year == 2025
+        case month
+        when 1..9
+          "Closed"   # Jan–Sep
+        when 10
+          "Overdue"  # Oct
+        when 11
+          "Open"     # Nov
+        end
       end
 
-    # Special rule for TAMAYAO: 2025 Sep & Oct are Overdue (unpaid)
-    if year == 2025 && [ 9, 10 ].include?(month)
-      billing_status = "Overdue"
-    end
-
     billing = Billing.create!(
-      subscriber: subscriber,
+      subscriber: tamayao,
       start_date: start_date,
       end_date: end_date,
-      amount: subscriber.brate,
+      amount: tamayao.brate,
       due_date: due_date,
       status: billing_status
     )
 
-    # Create a payment ONLY for Closed (paid) bills
+    # Payments only for Closed (paid) billings
     if billing_status == "Closed"
       pay_method = payment_methods.sample
 
       Payment.create!(
         billing: billing,
-        payment_date: due_date + 1.day,           # paid the day after due date
-        amount: subscriber.brate,
-        payment_method: pay_method,               # "GCash" or "Cash"
-        status: "Completed",                      # valid status per model
+        payment_date: due_date + 1.day,
+        amount: tamayao.brate,
+        payment_method: pay_method,
+        status: "Completed",
         attachment: "https://example.com/payment#{billing.id}.jpg",
         reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
       )
     end
   end
 end
-
-# Mark the latest payment as "Processing" to simulate an unverified one
-last_payment = Payment.order(:payment_date, :id).last
-if last_payment
-  last_payment.update!(status: "Processing")
-  puts "🔄 Marked last payment (ID #{last_payment.id}) as Processing"
-end
-
-puts "✅ Done seeding billings & payments for TAMAYAO!"
 
 puts "🌱 Loading subscriber seeds..."
 load Rails.root.join("db/seeds_subscribers.rb")

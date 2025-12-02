@@ -352,12 +352,12 @@ SUBSCRIBER_DATA = [
 
 payment_methods = [ "GCash", "Cash" ]
 
-# Special subscribers who should have overdue months (unpaid) in 2025:
-# - PINTOCAN (serial 118445-240) : Sep & Oct 2025 overdue
-# - VINASOY (serial 121988-250)  : Sep & Oct 2025 overdue
+# Special subscribers who have EXTRA unpaid months:
+# - PINTOCAN (Sep & Oct overdue)
+# - VINASOY  (Sep & Oct overdue)
 SPECIAL_UNPAID = {
-  "118060-240" => [ "Sep", "Oct" ],   # MALUYO (you can adjust label if needed)
-  "121988-250" => [ "Sep", "Oct" ]    # VINASOY
+  "118445-240" => %w[Sep Oct],  # PINTOCAN
+  "121988-250" => %w[Sep Oct]   # VINASOY
 }
 
 def month_name(date)
@@ -387,33 +387,33 @@ SUBSCRIBER_DATA.each do |rec|
 
   puts "👤 Seeded Subscriber: #{subscriber.last_name} #{subscriber.first_name} (#{subscriber.serial_number})"
 
-  # === BILLINGS ===
-  # Rules:
-  # - All subscribers:
-  #   - 2024: all months Closed (paid)
-  #   - 2025 Jan–Nov: Closed (paid)
-  #   - 2025 Dec: Open (unpaid)
-  # - SPECIAL_UNPAID subscribers:
-  #   - 2025 Sep & Oct: Overdue (unpaid)
+  # BILLINGS
   (2024..2025).each do |year|
-    end_month = 12  # always up to December
+    end_month = (year == 2024 ? 12 : 11)  # 2025 stops at November
 
     (1..end_month).each do |month|
-      start_date = Date.new(year, month, 1)
-      end_date   = start_date.end_of_month
-      due_date   = end_date + 14
+      start_date  = Date.new(year, month, 1)
+      end_date    = start_date.end_of_month
+      due_date    = end_date + 14
       month_short = month_name(start_date)
 
-      # Default billing status
       billing_status =
-        if year == 2024 || (year == 2025 && month <= 11)
+        if year == 2024
           "Closed"
-        else
-          # year == 2025 && month == 12
-          "Open"
+        else # 2025
+          case month
+          when 1..8
+            "Closed"      # Jan–Aug paid
+          when 9
+            "Closed"      # Sep (may be overridden)
+          when 10
+            "Overdue"     # Oct unpaid
+          when 11
+            "Open"        # Nov unpaid
+          end
         end
 
-      # Special overdue months for listed subscribers: Sep & Oct 2025
+      # Special subscribers: PINTOCAN & VINASOY (Sep + Oct = Overdue)
       if year == 2025 &&
          SPECIAL_UNPAID.key?(rec[:serial_number]) &&
          SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
@@ -429,29 +429,22 @@ SUBSCRIBER_DATA.each do |rec|
         status: billing_status
       )
 
-      # === Payments only for Closed (paid) billings ===
+      # Only Closed (paid) months get payments
       if billing_status == "Closed"
-        pay_method = payment_methods.sample
+        method = payment_methods.sample
 
         Payment.create!(
           billing: billing,
           payment_date: due_date + 1,
           amount: subscriber.brate,
-          payment_method: pay_method,
+          payment_method: method,
           status: "Completed",
           attachment: "https://example.com/payment#{billing.id}.jpg",
-          reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
+          reference_number: (method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
         )
       end
     end
   end
-end
-
-# === Mark last Payment as Processing ===
-last_payment = Payment.order(:payment_date, :id).last
-if last_payment
-  last_payment.update!(status: "Processing")
-  puts "🔄 Marked last payment (ID #{last_payment.id}) as Processing"
 end
 
 puts "✅ Done seeding all subscribers!"
