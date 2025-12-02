@@ -37,6 +37,7 @@ class Api::V1::SessionsController < ApplicationController
       date_installed: s.date_installed,
       plan: s.plan,
       brate: s.brate,
+      package: s.package,
       package_speed: s.package_speed,
       serial_number: s.serial_number,
       amount_due: s.brate,

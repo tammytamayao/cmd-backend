@@ -2,10 +2,8 @@
 require "date"
 require "securerandom"
 
-puts "🧹 Clearing subscriber-related data..."
-Payment.destroy_all
-Billing.destroy_all
-Subscriber.destroy_all
+puts "📌 Seeding subscribers from SUBSCRIBER_DATA..."
+# NOTE: We no longer destroy data here; that is handled in db/seeds.rb
 
 SUBSCRIBER_DATA = [
   {
@@ -352,12 +350,14 @@ SUBSCRIBER_DATA = [
   }
 ]
 
-puts "📌 Seeding #{SUBSCRIBER_DATA.length} subscribers..."
 payment_methods = [ "GCash", "Cash" ]
 
+# Special subscribers who have EXTRA unpaid months:
+# - PINTOCAN (Sep & Oct overdue)
+# - VINASOY  (Sep & Oct overdue)
 SPECIAL_UNPAID = {
-  "118060-240" => [ "Sep", "Oct" ],   # PINTOCAN
-  "121988-250" => [ "Sep", "Oct" ]    # VINASOY
+  "118445-240" => %w[Sep Oct],  # PINTOCAN
+  "121988-250" => %w[Sep Oct]   # VINASOY
 }
 
 def month_name(date)
@@ -387,36 +387,37 @@ SUBSCRIBER_DATA.each do |rec|
 
   puts "👤 Seeded Subscriber: #{subscriber.last_name} #{subscriber.first_name} (#{subscriber.serial_number})"
 
-  # === BILLINGS ===
+  # BILLINGS
   (2024..2025).each do |year|
-    end_month = (year == 2025 ? 10 : 12)
+    end_month = (year == 2024 ? 12 : 11)  # 2025 stops at November
 
     (1..end_month).each do |month|
-      start_date = Date.new(year, month, 1)
-      end_date   = start_date.end_of_month
-      due_date   = end_date + 14
-
+      start_date  = Date.new(year, month, 1)
+      end_date    = start_date.end_of_month
+      due_date    = end_date + 14
       month_short = month_name(start_date)
 
-      # Default billing status logic
       billing_status =
         if year == 2024
           "Closed"
-        else
-          if month <= 7
-            "Closed"
-          elsif [ 8, 9 ].include?(month)
-            "Overdue"
-          else
-            "Open"
+        else # 2025
+          case month
+          when 1..8
+            "Closed"      # Jan–Aug paid
+          when 9
+            "Closed"      # Sep (may be overridden)
+          when 10
+            "Overdue"     # Oct unpaid
+          when 11
+            "Open"        # Nov unpaid
           end
         end
 
-      # === Apply special rule for PINTOCAN + VINASOY ===
-      if SPECIAL_UNPAID.key?(rec[:serial_number]) && SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
+      # Special subscribers: PINTOCAN & VINASOY (Sep + Oct = Overdue)
+      if year == 2025 &&
+         SPECIAL_UNPAID.key?(rec[:serial_number]) &&
+         SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
         billing_status = "Overdue"
-      elsif month_short == "Oct" && year == 2025
-        billing_status = "Open" unless SPECIAL_UNPAID[rec[:serial_number]]&.include?("Oct")
       end
 
       billing = Billing.create!(
@@ -428,29 +429,22 @@ SUBSCRIBER_DATA.each do |rec|
         status: billing_status
       )
 
-      # === Payments only for Closed (paid) billings ===
+      # Only Closed (paid) months get payments
       if billing_status == "Closed"
-        pay_method = payment_methods.sample
+        method = payment_methods.sample
 
         Payment.create!(
           billing: billing,
           payment_date: due_date + 1,
           amount: subscriber.brate,
-          payment_method: pay_method,
+          payment_method: method,
           status: "Completed",
           attachment: "https://example.com/payment#{billing.id}.jpg",
-          reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
+          reference_number: (method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
         )
       end
     end
   end
-end
-
-# === Mark last Payment as Processing ===
-last_payment = Payment.order(:payment_date, :id).last
-if last_payment
-  last_payment.update!(status: "Processing")
-  puts "🔄 Marked last payment (ID #{last_payment.id}) as Processing"
 end
 
 puts "✅ Done seeding all subscribers!"

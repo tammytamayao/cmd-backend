@@ -2,34 +2,50 @@
 class Api::Admin::PaymentsController < ApplicationController
   before_action :authenticate_admin!
 
+  DEFAULT_START_YEAR = 2024
+  DEFAULT_END_YEAR   = 2025
+  PER_PAGE           = 10
+
   # GET /api/admin/payments
+  #
+  # Returns all payments (any status) within a date range, unless
+  # filtered by `status` or `payment_method`.
   def index
     Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
 
     payments = Payment
-      .includes(billing: :subscriber) # <-- preload subscriber
+      .includes(billing: :subscriber) # preload subscriber for JSON
       .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
     # ---- Date window by payment_date ----
     if params[:year].present?
       y = params[:year].to_i
-      payments = payments.where(payment_date: Date.new(y, 1, 1)..Date.new(y, 12, 31))
+      from = Date.new(y, 1, 1)
+      to   = Date.new(y, 12, 31)
+      payments = payments.where(payment_date: from..to)
     else
-      start_year = (params[:start_year] || 2024).to_i
-      end_year   = (params[:end_year]   || 2025).to_i
-      payments = payments.where(payment_date: Date.new(start_year, 1, 1)..Date.new(end_year, 12, 31))
+      start_year = (params[:start_year] || DEFAULT_START_YEAR).to_i
+      end_year   = (params[:end_year]   || DEFAULT_END_YEAR).to_i
+
+      from = Date.new(start_year, 1, 1)
+      to   = Date.new(end_year, 12, 31)
+      payments = payments.where(payment_date: from..to)
     end
 
     # ---- Optional filters ----
-    payments = payments.where(status: params[:status]) if params[:status].present?
+    if params[:status].present?
+      payments = payments.where(status: params[:status])
+    end
+
     if params[:payment_method].present?
       payments = payments.where("LOWER(payment_method) = ?", params[:payment_method].downcase)
     end
 
     # ---- Pagination ----
     page     = (params[:page] || 1).to_i
-    per_page = 10                             # 👈 fixed to 10 per page
+    per_page = PER_PAGE
     total    = payments.count
+
     payments = payments.offset((page - 1) * per_page).limit(per_page)
 
     render json: {
@@ -67,12 +83,18 @@ class Api::Admin::PaymentsController < ApplicationController
     end
 
     kind = params[:payment_method].to_s.upcase
-    method_label = case kind
-    when "GCASH"         then "GCash"
-    when "BANK_TRANSFER" then "Bank Transfer"
-    when "CASH"          then "Cash"
-    else "Cash"
-    end
+    method_label =
+      case kind
+      when "GCASH"
+        "GCash"
+      when "BANK_TRANSFER"
+        "Bank Transfer"
+      when "CASH"
+        "Cash"
+      else
+        "Cash"
+      end
+
 
     # Upload receipt to S3
     upload_result = S3Helper.upload_receipt(receipt_file, billing.id)
@@ -109,27 +131,30 @@ class Api::Admin::PaymentsController < ApplicationController
     subscriber = p.billing&.subscriber
 
     {
-      id: p.id,
-      payment_date: p.payment_date,
-      amount: p.amount.to_f,
-      payment_method: p.payment_method,
-      status: p.status,
-      attachment: p.attachment,
+      id:              p.id,
+      payment_date:    p.payment_date,
+      amount:          p.amount.to_f,
+      payment_method:  p.payment_method,
+      status:          p.status,
+      attachment:      p.attachment,
       reference_number: p.reference_number,
-      billing_id: p.billing_id,
-      billing_period_start: p.billing&.start_date,
-      billing_period_end: p.billing&.end_date,
-      billing_status: p.billing&.status,
+
+      billing_id:             p.billing_id,
+      billing_period_start:   p.billing&.start_date,
+      billing_period_end:     p.billing&.end_date,
+      billing_status:         p.billing&.status,
+
       subscriber: {
-      id: subscriber&.id,
-      serial_number: subscriber&.serial_number,
-      first_name: subscriber&.first_name,
-      last_name: subscriber&.last_name
+        id:            subscriber&.id,
+        serial_number: subscriber&.serial_number,
+        first_name:    subscriber&.first_name,
+        last_name:     subscriber&.last_name
       },
+
       receipt: {
-        filename: p.receipt_filename,
-        size: p.receipt_size,
-        mime_type: p.receipt_mime_type,
+        filename:    p.receipt_filename,
+        size:        p.receipt_size,
+        mime_type:   p.receipt_mime_type,
         uploaded_at: p.receipt_uploaded_at
       }
     }
