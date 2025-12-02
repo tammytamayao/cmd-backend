@@ -83,12 +83,18 @@ class Api::Admin::PaymentsController < ApplicationController
     end
 
     kind = params[:payment_method].to_s.upcase
-    method_label = case kind
-                    when "GCASH"         then "GCash"
-                    when "BANK_TRANSFER" then "Bank Transfer"
-                    when "CASH"          then "Cash"
-                    else "Cash"
-    end
+    method_label =
+      case kind
+      when "GCASH"
+        "GCash"
+      when "BANK_TRANSFER"
+        "Bank Transfer"
+      when "CASH"
+        "Cash"
+      else
+        "Cash"
+      end
+
 
     # Upload receipt to S3
     upload_result = S3Helper.upload_receipt(receipt_file, billing.id)
