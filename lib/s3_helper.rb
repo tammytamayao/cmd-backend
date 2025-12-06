@@ -58,7 +58,7 @@ module S3Helper
       raise S3Error, "Billing ID is required" if billing_id.nil?
 
       # Validate file type
-      allowed_types = ["application/pdf", "image/png", "image/jpeg", "image/jpg"]
+      allowed_types = [ "application/pdf", "image/png", "image/jpeg", "image/jpg" ]
       unless allowed_types.include?(file.content_type)
         return { success: false, error: "Invalid file type. Allowed: PDF, PNG, JPG" }
       end
