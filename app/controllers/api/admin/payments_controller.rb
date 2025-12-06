@@ -132,6 +132,37 @@ class Api::Admin::PaymentsController < ApplicationController
     end
   end
 
+  # PATCH/PUT /api/admin/payments/:id
+  def update
+    Rails.logger.info("[ADMIN] #{current_admin.email} updating payment #{params[:id]}")
+
+    payment = Payment.find_by(id: params[:id])
+    return render json: { error: "Payment not found" }, status: :not_found unless payment
+
+    permitted = params.permit(
+      :invoice_number,
+      :status,
+      :payment_method,
+      :amount,
+      :reference_number
+    )
+
+    if payment.update(permitted)
+      receipt_url = nil
+      if payment.attachment.present?
+        signed = S3Helper.generate_signed_url(payment.attachment)
+        receipt_url = signed[:url] if signed[:success]
+      end
+
+      render json: {
+        data: serialize_payment(payment).merge(receipt_url: receipt_url)
+      }, status: :ok
+    else
+      render json: { error: payment.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
+  end
+
+
   private
 
   def serialize_payment(p)
@@ -145,6 +176,7 @@ class Api::Admin::PaymentsController < ApplicationController
       status:           p.status,
       attachment:       p.attachment,
       reference_number: p.reference_number,
+      invoice_number:   p.invoice_number,
 
       billing_id:           p.billing_id,
       billing_period_start: p.billing&.start_date,
@@ -166,4 +198,4 @@ class Api::Admin::PaymentsController < ApplicationController
       }
     }
   end
-end
+end 
