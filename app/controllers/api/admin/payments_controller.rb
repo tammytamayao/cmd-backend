@@ -198,4 +198,4 @@ class Api::Admin::PaymentsController < ApplicationController
       }
     }
   end
-end 
+end
