@@ -426,7 +426,9 @@ SUBSCRIBER_DATA.each do |rec|
         end_date: end_date,
         amount: subscriber.brate,
         due_date: due_date,
-        status: billing_status
+        status: billing_status,
+        adjustment: nil,
+        adjustment_notes: nil
       )
 
       # Only Closed (paid) months get payments

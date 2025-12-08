@@ -70,7 +70,9 @@ payment_methods = [ "GCash", "Cash" ]
       end_date: end_date,
       amount: tamayao.brate,
       due_date: due_date,
-      status: billing_status
+      status: billing_status,
+      adjustment: nil,
+      adjustment_notes: nil
     )
 
     # Payments only for Closed (paid) billings
