@@ -19,7 +19,7 @@ class Api::Admin::PaymentsController < ApplicationController
 
     # ---- Date window by payment_date ----
     if params[:year].present?
-      y = params[:year].to_i
+      y    = params[:year].to_i
       from = Date.new(y, 1, 1)
       to   = Date.new(y, 12, 31)
       payments = payments.where(payment_date: from..to)
@@ -51,9 +51,9 @@ class Api::Admin::PaymentsController < ApplicationController
     render json: {
       data: payments.map { |p| serialize_payment(p) },
       meta: {
-        page: page,
-        per_page: per_page,
-        total: total,
+        page:        page,
+        per_page:    per_page,
+        total:       total,
         total_pages: (total / per_page.to_f).ceil
       }
     }
@@ -66,7 +66,18 @@ class Api::Admin::PaymentsController < ApplicationController
     payment = Payment.includes(billing: :subscriber).find_by(id: params[:id])
     return render json: { error: "Payment not found" }, status: :not_found unless payment
 
-    render json: { data: serialize_payment(payment) }, status: :ok
+    receipt_url = nil
+    if payment.attachment.present?
+      signed = S3Helper.generate_signed_url(payment.attachment)
+      # S3Helper.generate_signed_url returns { success:, url:, expires_at: }
+      receipt_url = signed[:url] if signed[:success]
+    end
+
+    render json: {
+      data: serialize_payment(payment).merge(
+        receipt_url: receipt_url
+      )
+    }, status: :ok
   end
 
   # POST /api/admin/payments
@@ -85,16 +96,12 @@ class Api::Admin::PaymentsController < ApplicationController
     kind = params[:payment_method].to_s.upcase
     method_label =
       case kind
-      when "GCASH"
-        "GCash"
-      when "BANK_TRANSFER"
-        "Bank Transfer"
-      when "CASH"
-        "Cash"
+      when "GCASH"         then "GCash"
+      when "BANK_TRANSFER" then "Bank Transfer"
+      when "CASH"          then "Cash"
       else
         "Cash"
       end
-
 
     # Upload receipt to S3
     upload_result = S3Helper.upload_receipt(receipt_file, billing.id)
@@ -131,18 +138,18 @@ class Api::Admin::PaymentsController < ApplicationController
     subscriber = p.billing&.subscriber
 
     {
-      id:              p.id,
-      payment_date:    p.payment_date,
-      amount:          p.amount.to_f,
-      payment_method:  p.payment_method,
-      status:          p.status,
-      attachment:      p.attachment,
+      id:               p.id,
+      payment_date:     p.payment_date,
+      amount:           p.amount.to_f,
+      payment_method:   p.payment_method,
+      status:           p.status,
+      attachment:       p.attachment,
       reference_number: p.reference_number,
 
-      billing_id:             p.billing_id,
-      billing_period_start:   p.billing&.start_date,
-      billing_period_end:     p.billing&.end_date,
-      billing_status:         p.billing&.status,
+      billing_id:           p.billing_id,
+      billing_period_start: p.billing&.start_date,
+      billing_period_end:   p.billing&.end_date,
+      billing_status:       p.billing&.status,
 
       subscriber: {
         id:            subscriber&.id,

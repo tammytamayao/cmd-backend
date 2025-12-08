@@ -220,6 +220,32 @@ module S3Helper
       end
     end
 
+    # 🔹 PUBLIC: Generate a signed URL for temporary S3 access (expires in 7 days by default)
+    # @param s3_key [String] The S3 key/path of the file
+    # @param expires_in [Integer] Expiration time in seconds (default: 7 days)
+    # @return [Hash] { success: true/false, url: "...", expires_at: "...", error?: "..." }
+    def generate_signed_url(s3_key, expires_in = 7.days.to_i)
+      raise S3Error, "S3 key is required" if s3_key.nil? || s3_key.empty?
+
+      begin
+        presigner = aws_s3_presigner
+        url = presigner.presigned_url(
+          :get_object,
+          bucket: bucket_name,
+          key: s3_key,
+          expires_in: expires_in
+        )
+
+        {
+          success: true,
+          url: url,
+          expires_at: (Time.current + expires_in).iso8601
+        }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+    end
+
     private
 
     # Get AWS S3 client
@@ -229,6 +255,11 @@ module S3Helper
         secret_access_key: ENV["AWS_SECRET_ACCESS_KEY"],
         region: ENV["AWS_S3_REGION"] || "us-east-1"
       )
+    end
+
+    # Presigner for generating signed URLs
+    def aws_s3_presigner
+      @presigner ||= Aws::S3::Presigner.new(client: aws_s3_client)
     end
 
     # Get S3 bucket name
@@ -257,31 +288,6 @@ module S3Helper
     def extract_subscriber_id(s3_key)
       parts = s3_key.split("/")
       parts[1] if parts.length >= 3 && parts[0] == "uploads"
-    end
-
-    # Generate a signed URL for temporary S3 access (expires in 7 days)
-    # @param s3_key [String] The S3 key/path of the file
-    # @param expires_in [Integer] Expiration time in seconds (default: 7 days)
-    # @return [Hash] Signed URL or error
-    def generate_signed_url(s3_key, expires_in = 7.days.to_i)
-      raise S3Error, "S3 key is required" if s3_key.nil? || s3_key.empty?
-
-      begin
-        client = aws_s3_client
-        url = client.get_object_url(
-          bucket: bucket_name,
-          key: s3_key,
-          expires_in: expires_in
-        )
-
-        {
-          success: true,
-          signed_url: url,
-          expires_at: (Time.current + expires_in).iso8601
-        }
-      rescue StandardError => e
-        { success: false, error: e.message }
-      end
     end
   end
 end

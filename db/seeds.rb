@@ -83,8 +83,8 @@ payment_methods = [ "GCash", "Cash" ]
         amount: tamayao.brate,
         payment_method: pay_method,
         status: "Completed",
-        attachment: "https://example.com/payment#{billing.id}.jpg",
-        reference_number: (pay_method == "Cash" ? nil : "REF#{SecureRandom.hex(4)}")
+        attachment: "NA",
+        reference_number: (pay_method == "Cash" ? nil : "NA")
       )
     end
   end

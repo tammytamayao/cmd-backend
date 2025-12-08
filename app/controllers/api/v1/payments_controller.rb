@@ -65,6 +65,29 @@ class Api::V1::PaymentsController < ApplicationController
     end
   end
 
+  def show
+    payment = Payment
+      .joins(billing: :subscriber)
+      .includes(:billing)
+      .where(billings: { subscriber_id: current_subscriber.id })
+      .find_by(id: params[:id])
+
+    return render json: { error: "Payment not found" }, status: :not_found unless payment
+
+    receipt_url = nil
+    if payment.attachment.present?
+      signed = S3Helper.generate_signed_url(payment.attachment)
+      receipt_url = signed[:url] if signed[:success]
+    end
+
+    render json: {
+      data: serialize_payment(payment).merge(
+        receipt_url: receipt_url
+      )
+    }, status: :ok
+  end
+
+
   # POST /api/v1/payments
   # Expects FormData with:
   # - billing_id (required)
