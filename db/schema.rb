@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_29_143612) do
+ActiveRecord::Schema[7.2].define(version: 2025_12_06_122207) do
   create_table "admin_users", force: :cascade do |t|
     t.string "email", null: false
     t.string "role", default: "billing_officer", null: false
@@ -61,6 +61,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_29_143612) do
     t.bigint "receipt_size"
     t.string "receipt_mime_type"
     t.datetime "receipt_uploaded_at"
+    t.string "invoice_number"
     t.index ["billing_id"], name: "index_payments_on_billing_id"
     t.index ["payment_method"], name: "index_payments_on_payment_method"
     t.index ["receipt_uploaded_at"], name: "index_payments_on_receipt_uploaded_at"

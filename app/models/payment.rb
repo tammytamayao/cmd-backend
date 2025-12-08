@@ -7,7 +7,7 @@ class Payment < ApplicationRecord
   validates :payment_date, presence: true
   validates :amount, presence: true, numericality: { greater_than: 0 }
   validates :payment_method, presence: true, inclusion: { in: %w[GCash Cash "Bank Transfer"], message: "%{value} is not a valid payment method" }
-  validates :status, presence: true, inclusion: { in: %w[Processing Completed Failed Cancelled], message: "%{value} is not a valid status" }
+  validates :status, presence: true, inclusion: { in: %w[Processing Completed Failed], message: "%{value} is not a valid status" }
   validates :attachment, presence: true
 
   scope :by_status, ->(status) { where(status: status) }
