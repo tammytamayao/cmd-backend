@@ -41,7 +41,7 @@ Rails.application.routes.draw do
 
       resources :payments,    only: [ :index, :show, :create, :update ]
       resources :subscribers, only: [ :index, :show ]
-      resources :billings,    only: [ :index, :show ]
+      resources :billings,    only: [ :index, :show, :update ]
     end
   end
 end
