@@ -214,7 +214,7 @@ class Api::Admin::BillingsController < ApplicationController
           start_date:       start_date,
           end_date:         end_date,
           due_date:         due_date,
-          status:           "open",
+          status:           "unpaid",
           amount:           amount,
           adjustment:       adjustment_per_account,
           adjustment_notes: adjustment_notes
