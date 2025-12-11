@@ -353,8 +353,8 @@ SUBSCRIBER_DATA = [
 payment_methods = [ "GCash", "Cash" ]
 
 # Special subscribers who have EXTRA unpaid months:
-# - PINTOCAN (Sep & Oct overdue)
-# - VINASOY  (Sep & Oct overdue)
+# - PINTOCAN (Sep & Oct unpaid)
+# - VINASOY  (Sep & Oct unpaid)
 SPECIAL_UNPAID = {
   "118445-240" => %w[Sep Oct],  # PINTOCAN
   "121988-250" => %w[Sep Oct]   # VINASOY
@@ -397,28 +397,33 @@ SUBSCRIBER_DATA.each do |rec|
       due_date    = end_date + 14
       month_short = month_name(start_date)
 
-      billing_status =
+      # Default rules:
+      #  - 2024: all months paid
+      #  - 2025: Jan–Aug paid, Sep paid (unless in SPECIAL_UNPAID), Oct–Nov unpaid
+      paid_month =
         if year == 2024
-          "Closed"
+          true
         else # 2025
           case month
           when 1..8
-            "Closed"      # Jan–Aug paid
+            true   # Jan–Aug paid
           when 9
-            "Closed"      # Sep (may be overridden)
+            true   # Sep paid by default
           when 10
-            "Overdue"     # Oct unpaid
+            false  # Oct unpaid
           when 11
-            "Open"        # Nov unpaid
+            false  # Nov unpaid
           end
         end
 
-      # Special subscribers: PINTOCAN & VINASOY (Sep + Oct = Overdue)
+      # Special subscribers: PINTOCAN & VINASOY (Sep + Oct = unpaid)
       if year == 2025 &&
          SPECIAL_UNPAID.key?(rec[:serial_number]) &&
          SPECIAL_UNPAID[rec[:serial_number]].include?(month_short)
-        billing_status = "Overdue"
+        paid_month = false
       end
+
+      status_value = paid_month ? "paid" : "unpaid"
 
       billing = Billing.create!(
         subscriber: subscriber,
@@ -426,13 +431,13 @@ SUBSCRIBER_DATA.each do |rec|
         end_date: end_date,
         amount: subscriber.brate,
         due_date: due_date,
-        status: billing_status,
+        status: status_value,
         adjustment: nil,
         adjustment_notes: nil
       )
 
-      # Only Closed (paid) months get payments
-      if billing_status == "Closed"
+      # Only PAID months get payments
+      if paid_month
         method = payment_methods.sample
 
         Payment.create!(

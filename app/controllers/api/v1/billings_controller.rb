@@ -4,7 +4,7 @@ class Api::V1::BillingsController < ApplicationController
   # GET /api/v1/billings
   # Optional query params:
   #   ?year=2025  OR  ?start_year=2024&end_year=2025
-  #   ?status=paid|unpaid|overdue
+  #   ?status=paid|unpaid|overdue  (overdue = unpaid + past due_date)
   #   ?page=1&per_page=12
   def index
     billings = current_subscriber
@@ -24,9 +24,30 @@ class Api::V1::BillingsController < ApplicationController
 
     # --- Optional status filter ---
     if params[:status].present?
-      # Split by comma and match case-insensitively
-      statuses = params[:status].split(",").map(&:strip).map(&:capitalize)
-      billings = billings.where(status: statuses)
+      # Accept comma-separated statuses, case-insensitive:
+      #   paid, unpaid, overdue
+      # where:
+      #   overdue = unpaid AND due_date < today
+      raw_statuses = params[:status].to_s.split(",").map { |s| s.strip.downcase }.uniq
+
+      base_scope = billings
+      scopes = []
+
+      if raw_statuses.include?("paid")
+        scopes << base_scope.where(status: "paid")
+      end
+
+      if raw_statuses.include?("unpaid")
+        scopes << base_scope.where(status: "unpaid")
+      end
+
+      if raw_statuses.include?("overdue")
+        scopes << base_scope.where(status: "unpaid").where("due_date < ?", Date.current)
+      end
+
+      if scopes.any?
+        billings = scopes.reduce { |acc, scope| acc.or(scope) }
+      end
     end
 
     # --- Simple pagination ---

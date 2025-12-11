@@ -36,10 +36,10 @@ puts "💳 Seeding billings & payments for TAMAYAO (2024–2025)..."
 payment_methods = [ "GCash", "Cash" ]
 
 # Rules for TAMAYAO:
-# - 2024: all months Closed (paid)
-# - 2025 Jan–Sep: Closed (paid)
-# - 2025 Oct: Overdue (unpaid)
-# - 2025 Nov: Open (unpaid)
+# - 2024: all months PAID
+# - 2025 Jan–Sep: PAID
+# - 2025 Oct: UNPAID
+# - 2025 Nov: UNPAID
 # - 2025 Dec: no billing created
 (2024..2025).each do |year|
   # 2024: Jan–Dec; 2025: Jan–Nov
@@ -50,19 +50,21 @@ payment_methods = [ "GCash", "Cash" ]
     end_date   = start_date.end_of_month
     due_date   = end_date + 14.days
 
-    billing_status =
+    paid_month =
       if year == 2024
-        "Closed"
+        true
       else # year == 2025
         case month
         when 1..9
-          "Closed"   # Jan–Sep
+          true   # Jan–Sep paid
         when 10
-          "Overdue"  # Oct
+          false  # Oct unpaid
         when 11
-          "Open"     # Nov
+          false  # Nov unpaid
         end
       end
+
+    status_value = paid_month ? "paid" : "unpaid"
 
     billing = Billing.create!(
       subscriber: tamayao,
@@ -70,13 +72,13 @@ payment_methods = [ "GCash", "Cash" ]
       end_date: end_date,
       amount: tamayao.brate,
       due_date: due_date,
-      status: billing_status,
+      status: status_value,
       adjustment: nil,
       adjustment_notes: nil
     )
 
-    # Payments only for Closed (paid) billings
-    if billing_status == "Closed"
+    # Payments only for PAID billings
+    if paid_month
       pay_method = payment_methods.sample
 
       Payment.create!(
