@@ -11,11 +11,14 @@ class Api::Admin::BillingsController < ApplicationController
 
     billings = Billing
       .includes(:subscriber)
-      .order(created_at: :desc)
+      .order(start_date: :desc) # ✅ better for "latest billing" UX than created_at
 
     if params[:subscriber_id].present?
       billings = billings.where(subscriber_id: params[:subscriber_id])
     end
+
+    # ✅ NEW: Optional status filter (paid / unpaid / overdue)
+    billings = apply_status_filter(billings)
 
     page     = (params[:page] || 1).to_i
     per_page = (params[:per_page] || PER_PAGE).to_i
@@ -273,5 +276,30 @@ class Api::Admin::BillingsController < ApplicationController
       :adjustment,
       :adjustment_notes
     )
+  end
+
+  def apply_status_filter(scope)
+    return scope unless params[:status].present?
+
+    raw_statuses = params[:status].to_s.split(",").map { |s| s.strip.downcase }.uniq
+
+    base_scope = scope
+    scopes = []
+
+    if raw_statuses.include?("paid")
+      scopes << base_scope.where(status: "paid")
+    end
+
+    if raw_statuses.include?("unpaid")
+      scopes << base_scope.where(status: "unpaid")
+    end
+
+    if raw_statuses.include?("overdue")
+      scopes << base_scope.where(status: "unpaid").where("due_date < ?", Date.current)
+    end
+
+    return scope if scopes.empty?
+
+    scopes.reduce { |acc, s| acc.or(s) }
   end
 end

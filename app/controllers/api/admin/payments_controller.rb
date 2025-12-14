@@ -117,6 +117,7 @@ class Api::Admin::PaymentsController < ApplicationController
       status:              "Processing",
       payment_method:      method_label,
       reference_number:    params[:gcash_reference].presence || params[:reference_number],
+      invoice_number:      params[:invoice_number],
       attachment:          upload_result[:s3_key],
       receipt_filename:    upload_result[:filename],
       receipt_size:        upload_result[:size],
