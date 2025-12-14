@@ -22,6 +22,13 @@ class Api::V1::BillingsController < ApplicationController
     # Optional status filter (paid / unpaid / overdue)
     billings = apply_status_filter(billings)
 
+    # Compute min/max year from ALL billings for this subscriber
+    min_date = billings.minimum(:start_date)
+    max_date = billings.maximum(:start_date)
+
+    min_year = min_date&.year
+    max_year = max_date&.year
+
     # --- Simple pagination ---
     page     = (params[:page] || 1).to_i
     per_page = [ (params[:per_page] || 12).to_i, 100 ].min
@@ -34,7 +41,9 @@ class Api::V1::BillingsController < ApplicationController
         page: page,
         per_page: per_page,
         total: total,
-        total_pages: (total / per_page.to_f).ceil
+        total_pages: (total / per_page.to_f).ceil,
+        min_year: min_year,
+        max_year: max_year
       }
     }
   end
