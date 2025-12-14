@@ -27,6 +27,8 @@ class Api::V1::SessionsController < ApplicationController
 
   def show
     s = current_subscriber
+    latest_billing = s.billings.order(start_date: :desc).first
+
     render json: {
       id: s.id,
       zone: s.zone,
@@ -40,8 +42,12 @@ class Api::V1::SessionsController < ApplicationController
       package: s.package,
       package_speed: s.package_speed,
       serial_number: s.serial_number,
-      amount_due: s.brate,
-      due_on: Date.today.end_of_month
+      amount_due: latest_billing&.amount&.to_f || 0,
+      due_on: latest_billing&.due_date,
+      latest_billing: latest_billing ? {
+        id: latest_billing.id,
+        status: latest_billing.status
+      } : nil
     }
   end
 
