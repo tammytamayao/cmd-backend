@@ -42,8 +42,6 @@ class Api::V1::SessionsController < ApplicationController
       package: s.package,
       package_speed: s.package_speed,
       serial_number: s.serial_number,
-
-      # ✅ now comes from latest billing
       amount_due: latest_billing&.amount&.to_f || 0,
       due_on: latest_billing&.due_date,
       latest_billing: latest_billing ? {
