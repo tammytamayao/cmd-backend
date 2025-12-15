@@ -49,7 +49,45 @@ class Api::Admin::SubscribersController < ApplicationController
     }
   end
 
+  # POST /api/admin/subscribers
+  def create
+    Rails.logger.info("[ADMIN] #{current_admin.email} creating subscriber")
+
+    subscriber = Subscriber.new(subscriber_params)
+
+    if subscriber.save
+      render json: { data: serialize_subscriber(subscriber) }, status: :created
+    else
+      render json: { error: subscriber.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
+  rescue ArgumentError => e
+    render json: { error: e.message }, status: :bad_request
+  end
+
   private
+
+  def subscriber_params
+    # date_installed should come as "YYYY-MM-DD" from the form
+    params.require(:subscriber).permit(
+      :collector,
+      :zone,
+      :date_installed,
+      :last_name,
+      :first_name,
+      :phone_number,
+      :alternative_phone,
+      :serial_number,
+      :tvconnect,
+      :package,
+      :plan,
+      :brate,
+      :mc_address,
+      :stb,
+      :cas,
+      :package_speed,
+      :requires_password_change
+    )
+  end
 
   def serialize_subscriber(s)
     {
