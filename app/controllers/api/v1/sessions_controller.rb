@@ -2,8 +2,7 @@ class Api::V1::SessionsController < ApplicationController
   before_action :authenticate_request!, only: :show
 
   def create
-    normalized = Subscriber.normalize_raw_phone(params[:phone_number])
-    subscriber = Subscriber.find_by(phone_number: normalized)
+    subscriber = Subscriber.find_by(serial_number: params[:serial_number])
 
     if subscriber&.authenticate(params[:password])
       token = JsonWebToken.encode({ sub: subscriber.id, type: "subscriber" })
@@ -14,16 +13,17 @@ class Api::V1::SessionsController < ApplicationController
           id: subscriber.id,
           first_name: subscriber.first_name,
           last_name: subscriber.last_name,
-          phone_number: subscriber.phone_number,
+          serial_number: subscriber.serial_number,
           plan: subscriber.plan,
           brate: subscriber.brate,
           requires_password_change: subscriber.requires_password_change
         }
       }, status: :created
     else
-      render json: { error: "Invalid phone or password" }, status: :unauthorized
+      render json: { error: "Invalid subscriber number or password" }, status: :unauthorized
     end
   end
+
 
   def show
     s = current_subscriber

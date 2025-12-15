@@ -18,6 +18,7 @@ class Subscriber < ApplicationRecord
                            }
 
   validates :password, length: { minimum: 6 }, if: -> { password.present? }
+  validates :serial_number, presence: true, uniqueness: true
 
   # Optional helper for login – now just trims spaces.
   def self.normalize_raw_phone(raw)
@@ -26,14 +27,14 @@ class Subscriber < ApplicationRecord
 
   private
 
-  # initial password: lastname (lowercase, no spaces) + last 4 digits of phone
   def set_default_password
     return if password_digest.present? || password.present?
 
-    digits = phone_number.to_s.gsub(/\D/, "")
-    last4  = digits[-4, 4]
-    lname  = last_name.to_s.downcase.gsub(/[^a-z0-9]/, "")
+    lname = last_name.to_s.downcase.gsub(/[^a-z0-9]/, "")
+    serial_prefix = serial_number.to_s[0, 4] # includes dash if present
 
-    self.password = "#{lname}#{last4}" if lname.present? && last4.present?
+    if lname.present? && serial_prefix.present?
+      self.password = "#{lname}#{serial_prefix}"
+    end
   end
 end
