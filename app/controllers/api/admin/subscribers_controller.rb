@@ -1,5 +1,6 @@
 class Api::Admin::SubscribersController < ApplicationController
   before_action :authenticate_admin!
+  before_action :set_subscriber, only: [:update, :show]
 
   # GET /api/admin/subscribers
   def index
@@ -49,6 +50,10 @@ class Api::Admin::SubscribersController < ApplicationController
     }
   end
 
+  def show
+    render json: { data: serialize_subscriber(@subscriber) }, status: :ok
+  end
+
   # POST /api/admin/subscribers
   def create
     Rails.logger.info("[ADMIN] #{current_admin.email} creating subscriber")
@@ -64,10 +69,27 @@ class Api::Admin::SubscribersController < ApplicationController
     render json: { error: e.message }, status: :bad_request
   end
 
+  # PATCH /api/admin/subscribers/:id
+  def update
+    Rails.logger.info("[ADMIN] #{current_admin.email} updating subscriber ##{@subscriber.id}")
+
+    if @subscriber.update(subscriber_params)
+      render json: { data: serialize_subscriber(@subscriber) }, status: :ok
+    else
+      render json: { error: @subscriber.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
+  rescue ArgumentError => e
+    render json: { error: e.message }, status: :bad_request
+  end
+
   private
 
+  def set_subscriber
+    @subscriber = Subscriber.find(params[:id])
+  end
+
+  # IMPORTANT: include all fields you want editable
   def subscriber_params
-    # date_installed should come as "YYYY-MM-DD" from the form
     params.require(:subscriber).permit(
       :collector,
       :zone,
@@ -89,19 +111,27 @@ class Api::Admin::SubscribersController < ApplicationController
     )
   end
 
+  # IMPORTANT: return the fields needed by the edit modal
   def serialize_subscriber(s)
     {
       id: s.id,
-      serial_number: s.serial_number,
-      first_name: s.first_name,
-      last_name: s.last_name,
-      phone_number: s.phone_number,
+      collector: s.collector,
       zone: s.zone,
+      date_installed: s.date_installed,
+      last_name: s.last_name,
+      first_name: s.first_name,
+      phone_number: s.phone_number,
+      alternative_phone: s.alternative_phone,
+      serial_number: s.serial_number,
+      tvconnect: s.tvconnect,
+      package: s.package,
       plan: s.plan,
       brate: s.brate,
-      package: s.package,
+      mc_address: s.mc_address,
+      stb: s.stb,
+      cas: s.cas,
       package_speed: s.package_speed,
-      date_installed: s.date_installed
+      requires_password_change: s.requires_password_change
     }
   end
 end
