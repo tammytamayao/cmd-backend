@@ -1,6 +1,6 @@
 class Api::Admin::SubscribersController < ApplicationController
   before_action :authenticate_admin!
-  before_action :set_subscriber, only: [:update, :show]
+  before_action :set_subscriber, only: [ :update, :show ]
 
   # GET /api/admin/subscribers
   def index
