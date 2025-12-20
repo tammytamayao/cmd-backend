@@ -6,8 +6,14 @@ class Api::Admin::SubscribersController < ApplicationController
   def index
     Rails.logger.info("[ADMIN] #{current_admin.email} listing subscribers dashboard")
 
-    period_start = params[:start_date].present? ? Date.parse(params[:start_date]) : Date.current.beginning_of_month
-    period_end   = params[:end_date].present? ? Date.parse(params[:end_date]) : Date.current.end_of_month
+    begin
+      period_start =
+        params[:start_date].present? ? Date.parse(params[:start_date]) : Date.current.beginning_of_month
+      period_end =
+        params[:end_date].present? ? Date.parse(params[:end_date]) : Date.current.end_of_month
+    rescue ArgumentError
+      return render json: { error: "Invalid start_date or end_date" }, status: :bad_request
+    end
 
     total_revenue = Payment
       .where(status: "Completed", payment_date: period_start..period_end)
@@ -25,11 +31,33 @@ class Api::Admin::SubscribersController < ApplicationController
 
     subscribers = Subscriber
       .includes(:billings)
-      .order(:last_name, :first_name)
+      .order(:last_name, :first_name, :id)
 
-    page     = (params[:page] || 1).to_i
-    per_page = [ (params[:per_page] || 10).to_i, 100 ].min
-    total    = subscribers.count
+    # ---- Search (q) across subscribers (SQLite-safe) ----
+    if params[:q].present?
+      q = params[:q].to_s.strip.downcase
+      escaped = ActiveRecord::Base.sanitize_sql_like(q)
+      like = "%#{escaped}%"
+
+      subscribers = subscribers.where(
+        <<~SQL,
+          LOWER(CAST(subscribers.id AS TEXT)) LIKE :like
+          OR LOWER(COALESCE(subscribers.serial_number, '')) LIKE :like
+          OR LOWER(COALESCE(subscribers.first_name, '')) LIKE :like
+          OR LOWER(COALESCE(subscribers.last_name, '')) LIKE :like
+          OR LOWER(COALESCE(subscribers.phone_number, '')) LIKE :like
+          OR LOWER(COALESCE(subscribers.zone, '')) LIKE :like
+        SQL
+        like: like
+      )
+    end
+
+    # ---- Pagination ----
+    page     = (params[:page].presence || 1).to_i
+    per_page = [(params[:per_page].presence || 10).to_i, 100].min
+    per_page = 10 if per_page <= 0
+
+    total = subscribers.count
     subscribers = subscribers.offset((page - 1) * per_page).limit(per_page)
 
     render json: {

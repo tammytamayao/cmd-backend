@@ -5,25 +5,53 @@ class Api::Admin::BillingsController < ApplicationController
   PER_PAGE = 10
 
   # GET /api/admin/billings
-  # Optional: ?subscriber_id=123 to filter
+  # Optional:
+  #   ?subscriber_id=123
+  #   ?status=paid,unpaid,overdue
+  #   ?q=garcia
   def index
     Rails.logger.info("[ADMIN] #{current_admin.email} listing billings")
 
     billings = Billing
-      .includes(:subscriber)
-      .order(start_date: :desc) # ✅ better for "latest billing" UX than created_at
+      .includes(:subscriber)   # avoid N+1 in serialize_billing
+      .joins(:subscriber)      # allow filtering on subscriber fields
+      .order(start_date: :desc, id: :desc)
 
+    # ---- Optional filters ----
     if params[:subscriber_id].present?
       billings = billings.where(subscriber_id: params[:subscriber_id])
     end
 
-    # ✅ NEW: Optional status filter (paid / unpaid / overdue)
     billings = apply_status_filter(billings)
 
-    page     = (params[:page] || 1).to_i
-    per_page = (params[:per_page] || PER_PAGE).to_i
-    total    = billings.count
+    # ---- Search (q) across billings + subscriber (SQLite-safe) ----
+    if params[:q].present?
+      q = params[:q].to_s.strip.downcase
+      escaped = ActiveRecord::Base.sanitize_sql_like(q)
+      like = "%#{escaped}%"
 
+      billings = billings.where(
+        <<~SQL,
+          LOWER(CAST(billings.id AS TEXT)) LIKE :like
+          OR LOWER(billings.status) LIKE :like
+          OR LOWER(CAST(billings.start_date AS TEXT)) LIKE :like
+          OR LOWER(CAST(billings.end_date AS TEXT)) LIKE :like
+          OR LOWER(CAST(billings.due_date AS TEXT)) LIKE :like
+          OR LOWER(subscribers.serial_number) LIKE :like
+          OR LOWER(subscribers.first_name) LIKE :like
+          OR LOWER(subscribers.last_name) LIKE :like
+          OR LOWER(subscribers.zone) LIKE :like
+        SQL
+        like: like
+      )
+    end
+
+    # ---- Pagination ----
+    page     = (params[:page].presence || 1).to_i
+    per_page = (params[:per_page].presence || PER_PAGE).to_i
+    per_page = PER_PAGE if per_page <= 0
+
+    total = billings.count
     billings = billings.offset((page - 1) * per_page).limit(per_page)
 
     render json: {
