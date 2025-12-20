@@ -54,7 +54,7 @@ class Api::Admin::SubscribersController < ApplicationController
 
     # ---- Pagination ----
     page     = (params[:page].presence || 1).to_i
-    per_page = [(params[:per_page].presence || 10).to_i, 100].min
+    per_page = [ (params[:per_page].presence || 10).to_i, 100 ].min
     per_page = 10 if per_page <= 0
 
     total = subscribers.count
