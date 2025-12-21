@@ -2,62 +2,81 @@
 class Api::Admin::PaymentsController < ApplicationController
   before_action :authenticate_admin!
 
-  DEFAULT_START_YEAR = 2024
-  DEFAULT_END_YEAR   = 2025
   PER_PAGE           = 10
 
-  # GET /api/admin/payments
-  #
-  # Returns all payments (any status) within a date range, unless
-  # filtered by `status` or `payment_method`.
-  def index
-    Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
+# GET /api/admin/payments
+def index
+  Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
 
-    payments = Payment
-      .includes(billing: :subscriber) # preload subscriber for JSON
-      .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
+  payments = Payment
+    .includes(billing: :subscriber) # avoid N+1 in serialize_payment
+    .joins(billing: :subscriber)    # allow filtering on subscribers columns
+    .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
-    # ---- Date window by payment_date ----
-    if params[:year].present?
-      y    = params[:year].to_i
-      from = Date.new(y, 1, 1)
-      to   = Date.new(y, 12, 31)
-      payments = payments.where(payment_date: from..to)
-    else
-      start_year = (params[:start_year] || DEFAULT_START_YEAR).to_i
-      end_year   = (params[:end_year]   || DEFAULT_END_YEAR).to_i
+  # ---- Optional date filters (only when provided) ----
+  if params[:year].present?
+    y = params[:year].to_i
+    from = Date.new(y, 1, 1)
+    to   = Date.new(y, 12, 31)
+    payments = payments.where(payment_date: from..to)
 
-      from = Date.new(start_year, 1, 1)
-      to   = Date.new(end_year, 12, 31)
-      payments = payments.where(payment_date: from..to)
-    end
+  elsif params[:start_year].present? || params[:end_year].present?
+    start_year = params[:start_year].present? ? params[:start_year].to_i : 1900
+    end_year   = params[:end_year].present?   ? params[:end_year].to_i   : Date.current.year
 
-    # ---- Optional filters ----
-    if params[:status].present?
-      payments = payments.where(status: params[:status])
-    end
-
-    if params[:payment_method].present?
-      payments = payments.where("LOWER(payment_method) = ?", params[:payment_method].downcase)
-    end
-
-    # ---- Pagination ----
-    page     = (params[:page] || 1).to_i
-    per_page = PER_PAGE
-    total    = payments.count
-
-    payments = payments.offset((page - 1) * per_page).limit(per_page)
-
-    render json: {
-      data: payments.map { |p| serialize_payment(p) },
-      meta: {
-        page:        page,
-        per_page:    per_page,
-        total:       total,
-        total_pages: (total / per_page.to_f).ceil
-      }
-    }
+    from = Date.new(start_year, 1, 1)
+    to   = Date.new(end_year, 12, 31)
+    payments = payments.where(payment_date: from..to)
   end
+
+  # ---- Optional filters ----
+  if params[:status].present?
+    payments = payments.where(status: params[:status])
+  end
+
+  if params[:payment_method].present?
+    pm = params[:payment_method].to_s.downcase
+    payments = payments.where("LOWER(payments.payment_method) = ?", pm)
+  end
+
+  # ---- Search (q) across payments + subscriber (SQLite-safe) ----
+  if params[:q].present?
+    q = params[:q].to_s.strip
+    escaped = ActiveRecord::Base.sanitize_sql_like(q.downcase)
+    like = "%#{escaped}%"
+
+    payments = payments.where(
+      <<~SQL,
+        LOWER(CAST(payments.id AS TEXT)) LIKE :like
+        OR LOWER(payments.invoice_number) LIKE :like
+        OR LOWER(payments.reference_number) LIKE :like
+        OR LOWER(payments.payment_method) LIKE :like
+        OR LOWER(payments.status) LIKE :like
+        OR LOWER(subscribers.serial_number) LIKE :like
+        OR LOWER(subscribers.first_name) LIKE :like
+        OR LOWER(subscribers.last_name) LIKE :like
+      SQL
+      like: like
+    )
+  end
+
+  # ---- Pagination ----
+  page     = (params[:page].presence || 1).to_i
+  per_page = PER_PAGE
+
+  total = payments.count
+  payments = payments.offset((page - 1) * per_page).limit(per_page)
+
+  render json: {
+    data: payments.map { |p| serialize_payment(p) },
+    meta: {
+      page:        page,
+      per_page:    per_page,
+      total:       total,
+      total_pages: (total / per_page.to_f).ceil
+    }
+  }
+end
 
   # GET /api/admin/payments/:id
   def show
