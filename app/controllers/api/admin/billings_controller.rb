@@ -69,8 +69,9 @@ class Api::Admin::BillingsController < ApplicationController
   # Params:
   #   group: "all" | "specific" (default: "all")
   #   subscriber_ids: array or comma-separated string of subscriber IDs (only for "specific")
+  #   billing_start: "YYYY-MM-DD" (optional)
+  #   billing_end:   "YYYY-MM-DD" (optional)
   #
-  # For now you only care about "all", but this is ready for "specific" later.
   def batch_summary
     Rails.logger.info("[ADMIN] #{current_admin.email} requesting billing batch summary")
 
@@ -99,34 +100,67 @@ class Api::Admin::BillingsController < ApplicationController
                       status: :unprocessable_entity
       end
 
+    # Optional: validate billing_start/billing_end if provided
+    billing_start = params[:billing_start].presence
+    billing_end   = params[:billing_end].presence
+
+    start_date = nil
+    end_date   = nil
+
+    if billing_start.present? || billing_end.present?
+      if billing_start.blank? || billing_end.blank?
+        return render json: { error: "billing_start and billing_end must both be provided" },
+                      status: :unprocessable_entity
+      end
+
+      begin
+        start_date = Date.parse(billing_start)
+        end_date   = Date.parse(billing_end)
+      rescue ArgumentError
+        return render json: { error: "Invalid billing_start or billing_end" },
+                      status: :unprocessable_entity
+      end
+
+      if start_date > end_date
+        return render json: { error: "billing_start must be on or before billing_end" },
+                      status: :unprocessable_entity
+      end
+    end
+
     accounts_selected = subscribers_scope.count
     base_amount       = subscribers_scope.sum(:brate).to_f
 
     render json: {
       group: group,
       accounts_selected: accounts_selected,
-      base_amount: base_amount
+      base_amount: base_amount,
+
+      # echo back (optional)
+      billing_start: start_date,
+      billing_end: end_date
     }, status: :ok
   end
 
   # POST /api/admin/billings/batch_create
   #
-  # Frontend payload:
+  # Frontend payload (Option B):
   #   {
   #     group: "all",
-  #     billing_month: "jan" | "feb" | ... | null,
+  #     billing_start: "YYYY-MM-DD",
+  #     billing_end: "YYYY-MM-DD",
   #     due_date: "YYYY-MM-DD",
   #     adjustment_per_account: number | null,
   #     adjustment_notes: string | null
   #   }
   #
-  # start_date / end_date:
-  #   - If billing_month is provided, use first/last day of that month in the current year
-  #   - If not, leave start_date/end_date as nil
+  # Backward compatible payload (legacy):
+  #   {
+  #     group: "all",
+  #     billing_month: "jan" | ...,
+  #     due_date: "YYYY-MM-DD",
+  #     ...
+  #   }
   #
-  # adjustment:
-  #   - If no adjustment_per_account is passed, store NULL in adjustment
-  #   - amount always = brate + (adjustment_per_account || 0)
   def batch_create
     Rails.logger.info("[ADMIN] #{current_admin.email} creating batch billings")
 
@@ -161,6 +195,7 @@ class Api::Admin::BillingsController < ApplicationController
                     status: :unprocessable_entity
     end
 
+    # --- due_date (required) ---
     if params[:due_date].blank?
       return render json: { error: "due_date is required" },
                     status: :unprocessable_entity
@@ -172,12 +207,41 @@ class Api::Admin::BillingsController < ApplicationController
       return render json: { error: "Invalid due_date" }, status: :unprocessable_entity
     end
 
-    # Derive start_date and end_date from billing_month (current year)
-    billing_month = params[:billing_month].presence
+    # --- billing range (Option B) ---
+    billing_start = params[:billing_start].presence
+    billing_end   = params[:billing_end].presence
+
     start_date = nil
     end_date   = nil
 
-    if billing_month.present?
+    if billing_start.present? || billing_end.present?
+      # Option B path: require both
+      if billing_start.blank? || billing_end.blank?
+        return render json: { error: "billing_start and billing_end are required" },
+                      status: :unprocessable_entity
+      end
+
+      begin
+        start_date = Date.parse(billing_start)
+        end_date   = Date.parse(billing_end)
+      rescue ArgumentError
+        return render json: { error: "Invalid billing_start or billing_end" },
+                      status: :unprocessable_entity
+      end
+
+      if start_date > end_date
+        return render json: { error: "billing_start must be on or before billing_end" },
+                      status: :unprocessable_entity
+      end
+    else
+      # Legacy fallback: derive from billing_month (current year)
+      billing_month = params[:billing_month].presence
+
+      if billing_month.blank?
+        return render json: { error: "billing_start and billing_end are required" },
+                      status: :unprocessable_entity
+      end
+
       month_map = {
         "jan" => 1, "feb" => 2, "mar" => 3, "apr" => 4,
         "may" => 5, "jun" => 6, "jul" => 7, "aug" => 8,
@@ -185,25 +249,26 @@ class Api::Admin::BillingsController < ApplicationController
       }
 
       month_num = month_map[billing_month.to_s.downcase]
-      if month_num
-        year       = Date.current.year
-        start_date = Date.new(year, month_num, 1)
-        end_date   = start_date.end_of_month
+      unless month_num
+        return render json: { error: "Invalid billing_month" },
+                      status: :unprocessable_entity
       end
+
+      year       = Date.current.year
+      start_date = Date.new(year, month_num, 1)
+      end_date   = start_date.end_of_month
     end
 
-    # adjustment_per_account comes from your React page as the sum of item.amount per account
+    # --- adjustment ---
     adjustment_per_account =
       if params.key?(:adjustment_per_account) && params[:adjustment_per_account].present?
         BigDecimal(params[:adjustment_per_account].to_s)
       else
-        nil  # store NULL in the adjustment column
+        nil
       end
 
-    # Amount should still be brate + (adjustment_per_account || 0)
     adjustment_for_amount = adjustment_per_account || 0.to_d
-
-    adjustment_notes = params[:adjustment_notes].presence
+    adjustment_notes      = params[:adjustment_notes].presence
 
     created_count = 0
 
