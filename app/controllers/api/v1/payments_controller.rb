@@ -10,20 +10,27 @@ class Api::V1::PaymentsController < ApplicationController
       .includes(:billing)
       .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
-    # ---- Date window by payment_date ----
+    # ---- Compute min/max year from ALL payments for this subscriber (before filters) ----
+    min_date = payments.minimum(:payment_date)
+    max_date = payments.maximum(:payment_date)
+    min_year = min_date&.year
+    max_year = max_date&.year
+
+    # ---- Year / range filters: apply ONLY if provided ----
     if params[:year].present?
       y = params[:year].to_i
       payments = payments.where(payment_date: Date.new(y, 1, 1)..Date.new(y, 12, 31))
-    else
-      start_year = (params[:start_year] || 2024).to_i
-      end_year   = (params[:end_year]   || 2025).to_i
+    elsif params[:start_year].present? || params[:end_year].present?
+      start_year = params[:start_year].present? ? params[:start_year].to_i : 1900
+      end_year   = params[:end_year].present?   ? params[:end_year].to_i   : Date.current.year
       payments = payments.where(payment_date: Date.new(start_year, 1, 1)..Date.new(end_year, 12, 31))
     end
 
     # ---- Optional filters ----
     payments = payments.where(status: params[:status]) if params[:status].present?
+
     if params[:payment_method].present?
-      payments = payments.where("LOWER(payment_method) = ?", params[:payment_method].downcase)
+      payments = payments.where("LOWER(payment_method) = ?", params[:payment_method].to_s.downcase)
     end
 
     # ---- Pagination ----
@@ -38,7 +45,9 @@ class Api::V1::PaymentsController < ApplicationController
         page: page,
         per_page: per_page,
         total: total,
-        total_pages: (total / per_page.to_f).ceil
+        total_pages: (total / per_page.to_f).ceil,
+        min_year: min_year,
+        max_year: max_year
       }
     }
   end
