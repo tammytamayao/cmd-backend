@@ -39,9 +39,9 @@ Rails.application.routes.draw do
     namespace :admin do
       post "login", to: "sessions#create"
 
-      resources :payments,    only: [ :index, :show, :create, :update ]
-      resources :subscribers, only: [ :index, :show, :create, :update ]
-      resources :billings,    only: [ :index, :show, :create, :update ] do
+      resources :payments,    only: [ :index, :show, :create, :update, :destroy ]
+      resources :subscribers, only: [ :index, :show, :create, :update, :destroy ]
+      resources :billings,    only: [ :index, :show, :create, :update, :destroy ] do
         collection do
           get :batch_summary
           post :batch_create
