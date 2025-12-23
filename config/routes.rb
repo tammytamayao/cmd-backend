@@ -41,7 +41,7 @@ Rails.application.routes.draw do
 
       resources :payments,    only: [ :index, :show, :create, :update ]
       resources :subscribers, only: [ :index, :show, :create, :update ]
-      resources :billings,    only: [ :index, :show, :update ] do
+      resources :billings,    only: [ :index, :show, :create, :update ] do
         collection do
           get :batch_summary
           post :batch_create
