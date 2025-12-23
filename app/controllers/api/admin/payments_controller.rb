@@ -182,6 +182,30 @@ end
     end
   end
 
+  # DELETE /api/admin/payments/:id
+  def destroy
+    Rails.logger.info("[ADMIN] #{current_admin.email} deleting payment #{params[:id]}")
+
+    payment = Payment.find_by(id: params[:id])
+    return render json: { error: "Payment not found" }, status: :not_found unless payment
+
+    # Best effort: delete receipt in S3 if present
+    if payment.attachment.present?
+      begin
+        S3Helper.delete(payment.attachment)
+      rescue => e
+        Rails.logger.warn("[ADMIN] Failed to delete S3 receipt for payment #{payment.id}: #{e.class} #{e.message}")
+        # We intentionally do NOT block deletion if S3 deletion fails
+      end
+    end
+
+    if payment.destroy
+      render json: { ok: true }, status: :ok
+    else
+      render json: { error: "Failed to delete payment" }, status: :unprocessable_entity
+    end
+  end
+
 
   private
 
