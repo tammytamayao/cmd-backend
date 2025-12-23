@@ -110,6 +110,22 @@ class Api::Admin::SubscribersController < ApplicationController
     render json: { error: e.message }, status: :bad_request
   end
 
+  # DELETE /api/admin/subscribers/:id
+  def destroy
+    Rails.logger.info("[ADMIN] #{current_admin.email} deleting subscriber #{params[:id]}")
+
+    subscriber = Subscriber.find_by(id: params[:id])
+    return render json: { error: "Subscriber not found" }, status: :not_found unless subscriber
+
+    if subscriber.billings.exists?
+      return render json: { error: "Cannot delete subscriber with existing billings." },
+                    status: :unprocessable_entity
+    end
+
+    subscriber.destroy!
+    render json: { success: true }, status: :ok
+  end
+
   private
 
   def set_subscriber

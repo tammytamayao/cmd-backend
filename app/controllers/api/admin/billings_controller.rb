@@ -102,6 +102,22 @@ class Api::Admin::BillingsController < ApplicationController
     end
   end
 
+  # DELETE /api/admin/billings/:id
+  def destroy
+    Rails.logger.info("[ADMIN] #{current_admin.email} deleting billing #{params[:id]}")
+
+    billing = Billing.find_by(id: params[:id])
+    return render json: { error: "Billing not found" }, status: :not_found unless billing
+
+    if billing.payments.exists?
+      return render json: { error: "Cannot delete billing with existing payments." },
+                    status: :unprocessable_entity
+    end
+
+    billing.destroy!
+    render json: { success: true }, status: :ok
+  end
+
   # GET /api/admin/billings/batch_summary
   def batch_summary
     Rails.logger.info("[ADMIN] #{current_admin.email} requesting billing batch summary")
