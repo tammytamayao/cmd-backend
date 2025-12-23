@@ -227,7 +227,7 @@ class Api::Admin::BillingsController < ApplicationController
     per_page = (params[:per_page].presence || PER_PAGE).to_i
     per_page = PER_PAGE if per_page <= 0
     page = 1 if page <= 0
-    [page, per_page]
+    [ page, per_page ]
   end
 
   def pagination_meta(page, per_page, total)
@@ -302,7 +302,7 @@ class Api::Admin::BillingsController < ApplicationController
 
     raise DateParseError, "billing_start must be on or before billing_end" if start_date > end_date
 
-    [start_date, end_date]
+    [ start_date, end_date ]
   rescue ArgumentError
     raise DateParseError, "Invalid billing_start or billing_end"
   end
@@ -332,7 +332,7 @@ class Api::Admin::BillingsController < ApplicationController
     start_date = Date.new(year, month_num, 1)
     end_date   = start_date.end_of_month
 
-    [start_date, end_date]
+    [ start_date, end_date ]
   end
 
   def resolve_subscribers_scope(group)

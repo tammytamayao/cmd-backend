@@ -42,7 +42,7 @@ class EnforceUniqueBillingPeriod < ActiveRecord::Migration[7.2]
 
     # ---- UNIQUE CONSTRAINT ----
     add_index :billings,
-              [:subscriber_id, :start_date, :end_date],
+              [ :subscriber_id, :start_date, :end_date ],
               unique: true,
               name: "index_billings_on_subscriber_and_period"
   end
