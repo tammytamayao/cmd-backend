@@ -43,7 +43,7 @@ payment_methods = [ "GCash", "Cash" ]
       else
         case month
         when 1..9
-          true 
+          true
         when 10
           false
         when 11
