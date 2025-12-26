@@ -161,8 +161,9 @@ class Api::V1::PaymentsController < ApplicationController
       amount: p.amount.to_f,
       payment_method: p.payment_method,
       status: p.status,
-      attachment: p.attachment,               # S3 key
+      attachment: p.attachment,
       reference_number: p.reference_number,
+      invoice_number: p.invoice_number,
       billing_id: p.billing_id,
       billing_period_start: p.billing&.start_date,
       billing_period_end: p.billing&.end_date,
