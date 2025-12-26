@@ -20,9 +20,17 @@ def index
     to   = Date.new(y, 12, 31)
     payments = payments.where(payment_date: from..to)
 
+<<<<<<< HEAD
+    # ---- Pagination ----
+    page     = (params[:page] || 1).to_i
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
+    total    = payments.count
+    payments = payments.offset((page - 1) * per_page).limit(per_page)
+=======
   elsif params[:start_year].present? || params[:end_year].present?
     start_year = params[:start_year].present? ? params[:start_year].to_i : 1900
     end_year   = params[:end_year].present?   ? params[:end_year].to_i   : Date.current.year
+>>>>>>> tammy/staging
 
     from = Date.new(start_year, 1, 1)
     to   = Date.new(end_year, 12, 31)

@@ -10,16 +10,29 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_20_100712) do
+ActiveRecord::Schema[7.2].define(version: 2025_12_23_053232) do
+  create_table "admin_users", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "role", default: "billing_officer", null: false
+    t.string "password_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_admin_users_on_email", unique: true
+    t.index ["role"], name: "index_admin_users_on_role"
+  end
+
   create_table "billings", force: :cascade do |t|
-    t.date "start_date"
-    t.date "end_date"
-    t.decimal "amount"
-    t.date "due_date"
-    t.string "status"
+    t.date "start_date", null: false
+    t.date "end_date", null: false
+    t.decimal "amount", null: false
+    t.date "due_date", null: false
+    t.string "status", null: false
     t.integer "subscriber_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "adjustment"
+    t.string "adjustment_notes"
+    t.index ["subscriber_id", "start_date", "end_date"], name: "index_billings_on_subscriber_and_period", unique: true
     t.index ["subscriber_id"], name: "index_billings_on_subscriber_id"
   end
 
@@ -51,6 +64,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_20_100712) do
     t.bigint "receipt_size"
     t.string "receipt_mime_type"
     t.datetime "receipt_uploaded_at"
+    t.string "invoice_number"
     t.index ["billing_id"], name: "index_payments_on_billing_id"
     t.index ["payment_method"], name: "index_payments_on_payment_method"
     t.index ["receipt_uploaded_at"], name: "index_payments_on_receipt_uploaded_at"

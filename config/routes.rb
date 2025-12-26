@@ -13,7 +13,7 @@ Rails.application.routes.draw do
       resources :sessions, only: [ :create, :destroy ]
       get "session/me", to: "sessions#show"
       resources :billings, only: [ :index ]
-      resources :payments, only: [ :index, :create ] do
+      resources :payments, only: [ :index, :show, :create ] do
         member do
           get :receipt_url
         end
@@ -37,7 +37,16 @@ Rails.application.routes.draw do
     # Admin endpoints (currently unauthenticated for debugging)
     # TODO: Implement proper authentication for admin endpoints in production
     namespace :admin do
-      resources :payments, only: [ :index, :create, :show ]
+      post "login", to: "sessions#create"
+
+      resources :payments,    only: [ :index, :show, :create, :update, :destroy ]
+      resources :subscribers, only: [ :index, :show, :create, :update, :destroy ]
+      resources :billings,    only: [ :index, :show, :create, :update, :destroy ] do
+        collection do
+          get :batch_summary
+          post :batch_create
+        end
+      end
     end
   end
 end
