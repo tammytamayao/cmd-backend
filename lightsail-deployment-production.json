@@ -1,0 +1,28 @@
+{
+  "serviceName": "cmd-backend-production",
+  "containers": {
+    "cmd-backend": {
+      "image": ":cmd-backend-production.cmd-backend.1",
+      "ports": {
+        "3000": "HTTP"
+      },
+      "environment": {
+        "RAILS_ENV": "production",
+        "ENVIRONMENT_MODE": "production",
+        "PORT": "3000",
+        "RAILS_LOG_TO_STDOUT": "true",
+        "RAILS_SERVE_STATIC_FILES": "true"
+      }
+    }
+  },
+  "publicEndpoint": {
+    "containerName": "cmd-backend",
+    "containerPort": 3000,
+    "healthCheck": {
+      "path": "/",
+      "intervalSeconds": 30,
+      "timeoutSeconds": 5,
+      "successCodes": "200-499"
+    }
+  }
+}

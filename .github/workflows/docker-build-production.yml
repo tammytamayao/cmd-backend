@@ -1,0 +1,80 @@
+name: Build and Push Docker Image (Production)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: frostzeichen/cmd-backend:production
+          cache-from: type=registry,ref=frostzeichen/cmd-backend:buildcache-production
+          cache-to: type=registry,ref=frostzeichen/cmd-backend:buildcache-production,mode=max
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}
+          aws-region: ${{ secrets.AWS_S3_REGION }}
+
+      - name: Install Lightsail CLI plugin
+        run: |
+          curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
+          chmod +x /usr/local/bin/lightsailctl
+
+      - name: Push image to Lightsail
+        run: |
+          docker pull frostzeichen/cmd-backend:production
+          aws lightsail push-container-image \
+            --service-name ${{ secrets.LIGHTSAIL_SERVICE_NAME_PRODUCTION }} \
+            --label cmd-backend \
+            --image frostzeichen/cmd-backend:production
+
+      - name: Get image reference and deploy
+        run: |
+          # Get the latest image version
+          IMAGE_REF=$(aws lightsail get-container-images --service-name ${{ secrets.LIGHTSAIL_SERVICE_NAME_PRODUCTION }} | jq -r '.containerImages[0].image')
+
+          # Update deployment JSON with secrets from GitHub
+          jq --arg img "$IMAGE_REF" \
+             --arg secret_key "${{ secrets.SECRET_KEY_BASE_PRODUCTION }}" \
+             --arg db_url "${{ secrets.DATABASE_URL_PRODUCTION }}" \
+             --arg aws_key "${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}" \
+             --arg aws_secret "${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}" \
+             --arg s3_bucket "${{ secrets.AWS_S3_BUCKET_PRODUCTION }}" \
+             --arg s3_region "${{ secrets.AWS_S3_REGION_PRODUCTION }}" \
+             '.containers["cmd-backend"].image = $img |
+              .containers["cmd-backend"].environment.SECRET_KEY_BASE = $secret_key |
+              .containers["cmd-backend"].environment.DATABASE_URL = $db_url |
+              .containers["cmd-backend"].environment.AWS_ACCESS_KEY_ID_PRODUCTION = $aws_key |
+              .containers["cmd-backend"].environment.AWS_SECRET_ACCESS_KEY_PRODUCTION = $aws_secret |
+              .containers["cmd-backend"].environment.AWS_S3_BUCKET_PRODUCTION = $s3_bucket |
+              .containers["cmd-backend"].environment.AWS_S3_REGION_PRODUCTION = $s3_region' \
+             lightsail-deployment-production.json > deployment-temp.json
+
+          # Deploy to Lightsail
+          aws lightsail create-container-service-deployment \
+            --cli-input-json file://deployment-temp.json
+
+          echo "Deployed image: $IMAGE_REF to PRODUCTION"
