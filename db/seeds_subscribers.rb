@@ -365,27 +365,29 @@ def month_name(date)
 end
 
 SUBSCRIBER_DATA.each do |rec|
-  subscriber = Subscriber.create!(
-    collector: rec[:collector],
-    zone: rec[:zone],
-    date_installed: Date.parse(rec[:date_installed]),
-    last_name: rec[:last_name],
-    first_name: rec[:first_name],
-    phone_number: rec[:phone_number],
-    alternative_phone: rec[:alternative_phone],
-    serial_number: rec[:serial_number],
-    tvconnect: rec[:tvconnect],
-    package: rec[:package],
-    plan: rec[:plan],
-    brate: rec[:brate],
-    mc_address: rec[:mac_address],
-    stb: rec[:stb],
-    cas: rec[:cas],
-    package_speed: rec[:package_speed],
-    requires_password_change: rec[:requires_password_change]
-  )
+  subscriber = Subscriber.find_or_create_by!(serial_number: rec[:serial_number]) do |s|
+    s.collector = rec[:collector]
+    s.zone = rec[:zone]
+    s.date_installed = Date.parse(rec[:date_installed])
+    s.last_name = rec[:last_name]
+    s.first_name = rec[:first_name]
+    s.phone_number = rec[:phone_number]
+    s.alternative_phone = rec[:alternative_phone]
+    s.tvconnect = rec[:tvconnect]
+    s.package = rec[:package]
+    s.plan = rec[:plan]
+    s.brate = rec[:brate]
+    s.mc_address = rec[:mac_address]
+    s.stb = rec[:stb]
+    s.cas = rec[:cas]
+    s.package_speed = rec[:package_speed]
+    s.requires_password_change = rec[:requires_password_change]
+  end
 
   puts "👤 Seeded Subscriber: #{subscriber.last_name} #{subscriber.first_name} (#{subscriber.serial_number})"
+
+  # Skip billing/payment creation if subscriber already existed
+  next if subscriber.billings.any?
 
   # BILLINGS
   (2024..2025).each do |year|

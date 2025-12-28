@@ -47,6 +47,12 @@ Rails.application.routes.draw do
           post :batch_create
         end
       end
+
+      # Database seeding endpoints (only available in development and staging)
+      unless Rails.env.production?
+        post "seed_subscribers", to: "seeds#seed_subscribers"
+        post "reset_database", to: "seeds#reset_database"
+      end
     end
   end
 end
