@@ -1,0 +1,29 @@
+{
+  "serviceName": "cmd-backend",
+  "containers": {
+    "cmd-backend": {
+      "image": ":cmd-backend-service.cmd-backend.1",
+      "ports": {
+        "3000": "HTTP"
+      },
+      "environment": {
+        "RAILS_ENV": "staging",
+        "PORT": "3000",
+        "RAILS_LOG_TO_STDOUT": "true",
+        "RAILS_SERVE_STATIC_FILES": "true",
+        "SECRET_KEY_BASE": "ab266db2f27460811140fb1bf622c3994f12a243a6f9ea14772670db7f21439b4b52a7bfba9bc972ac034f85f53152e1fad3f369ce27596b8bc5d1e9837f74a0",
+        "DATABASE_URL": "ls-61a93dcd5c1749a539eca5b1dab2a61a55949d3f.cpg8mqu0ictx.ap-southeast-1.rds.amazonaws.com"
+      }
+    }
+  },
+  "publicEndpoint": {
+    "containerName": "cmd-backend",
+    "containerPort": 3000,
+    "healthCheck": {
+      "path": "/",
+      "intervalSeconds": 30,
+      "timeoutSeconds": 5,
+      "successCodes": "200-499"
+    }
+  }
+}
