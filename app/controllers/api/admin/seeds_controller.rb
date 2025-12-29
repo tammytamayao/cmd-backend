@@ -52,4 +52,35 @@ class Api::Admin::SeedsController < ApplicationController
       render json: { error: e.message }, status: :internal_server_error
     end
   end
+
+  # POST /api/admin/delete_all_subscribers
+  # Destroys all subscriber data without reseeding (requires confirmation parameter)
+  def delete_all_subscribers
+    Rails.logger.info("[ADMIN] #{current_admin.email} attempting to delete all subscribers")
+
+    # Require explicit confirmation
+    unless params[:confirm] == "DELETE"
+      return render json: {
+        error: 'Missing confirmation. Send { "confirm": "DELETE" } to proceed.'
+      }, status: :bad_request
+    end
+
+    begin
+      Rails.logger.warn("[ADMIN] #{current_admin.email} deleting all subscribers!")
+
+      Payment.destroy_all
+      Billing.destroy_all
+      Subscriber.destroy_all
+
+      render json: {
+        message: "All subscribers, billings, and payments deleted successfully",
+        subscribers: Subscriber.count,
+        billings: Billing.count,
+        payments: Payment.count
+      }, status: :ok
+    rescue => e
+      Rails.logger.error("[ADMIN] Delete all subscribers failed: #{e.message}")
+      render json: { error: e.message }, status: :internal_server_error
+    end
+  end
 end

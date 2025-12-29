@@ -52,6 +52,7 @@ Rails.application.routes.draw do
       unless Rails.env.production?
         post "seed_subscribers", to: "seeds#seed_subscribers"
         post "reset_database", to: "seeds#reset_database"
+        post "delete_all_subscribers", to: "seeds#delete_all_subscribers"
       end
     end
   end
