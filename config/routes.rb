@@ -45,6 +45,9 @@ Rails.application.routes.draw do
         collection do
           get :batch_summary
           post :batch_create
+
+          get :multiple_summary
+          post :multiple_create
         end
       end
 

@@ -225,6 +225,121 @@ class Api::Admin::BillingsController < ApplicationController
     }, status: :created
   end
 
+  # GET /api/admin/billings/multiple_summary
+  def multiple_summary
+    Rails.logger.info("[ADMIN] #{current_admin.email} requesting multiple billing summary")
+
+    ids = parse_ids(params[:subscriber_ids])
+    if ids.empty?
+      return render json: { error: "subscriber_ids is required" }, status: :unprocessable_entity
+    end
+
+    subscribers_scope = Subscriber.where(id: ids)
+
+    billing_start = params[:billing_start].presence
+    billing_end   = params[:billing_end].presence
+
+    start_date = nil
+    end_date   = nil
+    existing_count = nil
+
+    if billing_start.present? || billing_end.present?
+      begin
+        start_date, end_date = parse_billing_range!(billing_start, billing_end)
+      rescue DateParseError => e
+        return render json: { error: e.message }, status: :unprocessable_entity
+      end
+
+      existing_count = Billing.where(
+        subscriber_id: subscribers_scope.select(:id),
+        start_date: start_date,
+        end_date: end_date
+      ).count
+    end
+
+    accounts_selected = subscribers_scope.count
+    base_amount       = subscribers_scope.sum(:brate).to_f
+
+    render json: {
+      group: "multiple",
+      accounts_selected: accounts_selected,
+      base_amount: base_amount,
+      billing_start: start_date,
+      billing_end: end_date,
+      existing_count: existing_count
+    }, status: :ok
+  end
+
+  # POST /api/admin/billings/multiple_create
+  def multiple_create
+    Rails.logger.info("[ADMIN] #{current_admin.email} creating multiple billings")
+
+    ids = parse_ids(params[:subscriber_ids])
+    if ids.empty?
+      return render json: { error: "subscriber_ids is required" }, status: :unprocessable_entity
+    end
+
+    subscribers_scope = Subscriber.where(id: ids)
+
+    accounts_selected = subscribers_scope.count
+    return render json: { error: "No subscribers found" }, status: :unprocessable_entity if accounts_selected.zero?
+
+    # due_date required
+    return render json: { error: "due_date is required" }, status: :unprocessable_entity if params[:due_date].blank?
+
+    begin
+      due_date = parse_date!(params[:due_date], "due_date")
+    rescue DateParseError => e
+      return render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    # require billing_start and billing_end (match your multiple UI)
+    billing_start = params[:billing_start].presence
+    billing_end   = params[:billing_end].presence
+    begin
+      start_date, end_date = parse_billing_range!(billing_start, billing_end)
+    rescue DateParseError => e
+      return render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    adjustment_per_account = parse_decimal(params[:adjustment_per_account]) # optional
+    adjustment_for_amount  = adjustment_per_account || 0.to_d
+    adjustment_notes       = params[:adjustment_notes].presence
+
+    created_count = 0
+    skipped_count = 0
+
+    Billing.transaction do
+      subscribers_scope.find_each do |subscriber|
+        base   = (subscriber.brate || 0).to_d
+        amount = base + adjustment_for_amount
+
+        begin
+          Billing.create!(
+            subscriber: subscriber,
+            start_date: start_date,
+            end_date: end_date,
+            due_date: due_date,
+            status: "unpaid",
+            amount: amount,
+            adjustment: adjustment_per_account,
+            adjustment_notes: adjustment_notes
+          )
+          created_count += 1
+        rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+          skipped_count += 1
+        end
+      end
+    end
+
+    render json: {
+      group: "multiple",
+      accounts_selected: accounts_selected,
+      created_count: created_count,
+      skipped_count: skipped_count
+    }, status: :created
+  end
+
   private
 
   # ---------- params ----------
