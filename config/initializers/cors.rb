@@ -25,7 +25,9 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
             "http://54.153.170.227:3000",
             "http://54.153.170.227",
             "https://staging.d316yythnybmzr.amplifyapp.com",
-            "https://production.d2eefu9zyx8ink.amplifyapp.com"
+            "https://production.d2eefu9zyx8ink.amplifyapp.com",
+            "https://cmdunlifibermax.com",
+            "https://www.cmdunlifibermax.com"
 
     resource "*",
       headers: :any,
