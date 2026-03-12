@@ -8,6 +8,11 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
   namespace :api do
+    # Webhook endpoints for payment gateways (no auth required)
+    scope :webhooks do
+      post ":provider", to: "webhooks#create", as: :payment_webhook
+    end
+
     namespace :v1 do
       resources :subscribers, only: [ :index, :show ]
       resources :sessions, only: [ :create, :destroy ]
@@ -16,6 +21,13 @@ Rails.application.routes.draw do
       resources :payments, only: [ :index, :show, :create ] do
         member do
           get :receipt_url
+        end
+      end
+
+      # Payment gateway checkout
+      resources :checkouts, only: [ :create ] do
+        member do
+          get :verify
         end
       end
 

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Gateway Checkout Test</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --text: #111827;
+      --muted: #6b7280;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+    h2 { font-size: 1.1rem; margin-bottom: .75rem; color: var(--text); }
+    p.subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: .9rem; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: .85rem;
+      font-weight: 600;
+      margin-bottom: .35rem;
+      color: var(--text);
+    }
+
+    input, select {
+      width: 100%;
+      padding: .55rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .9rem;
+      margin-bottom: .85rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: .6rem 1.25rem;
+      border: none;
+      border-radius: 6px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-sm {
+      padding: .4rem .85rem;
+      font-size: .8rem;
+      width: auto;
+    }
+
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    .row { display: flex; gap: .75rem; }
+    .row > * { flex: 1; }
+
+    .badge {
+      display: inline-block;
+      padding: .15rem .5rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+
+    .log-box {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: var(--radius);
+      padding: 1rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: .8rem;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    .log-box .time { color: #94a3b8; }
+    .log-box .info { color: #38bdf8; }
+    .log-box .ok { color: #4ade80; }
+    .log-box .err { color: #f87171; }
+    .log-box .warn { color: #facc15; }
+
+    .hidden { display: none; }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .75rem;
+      border-radius: 6px;
+      font-size: .85rem;
+      font-weight: 500;
+      margin-bottom: .75rem;
+    }
+    .status-bar.connected { background: #dcfce7; color: #166534; }
+    .status-bar.disconnected { background: #fee2e2; color: #991b1b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { text-align: left; padding: .5rem; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; }
+    td { padding: .5rem; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: #f9fafb; }
+
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <!-- ======== STEP 1: LOGIN ======== -->
+  <div id="step-login">
+    <h1>Payment Gateway Test</h1>
+    <p class="subtitle">Log in as a subscriber to test the checkout flow.</p>
+
+    <div class="card">
+      <h2>Subscriber Login</h2>
+      <label for="api-base">API Base URL</label>
+      <input id="api-base" type="text" value="http://localhost:3000" />
+
+      <label for="serial">Serial Number</label>
+      <input id="serial" type="text" placeholder="e.g. SN-001" />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Password" />
+
+      <button class="btn-primary" onclick="doLogin()">Log In</button>
+      <p id="login-error" style="color:var(--danger);font-size:.85rem;margin-top:.5rem;"></p>
+    </div>
+
+    <div class="card">
+      <h2>Or Paste Token Directly</h2>
+      <label for="raw-token">Bearer Token</label>
+      <input id="raw-token" type="text" placeholder="eyJhbGciOi..." />
+      <button class="btn-primary" onclick="useRawToken()">Use Token</button>
+    </div>
+  </div>
+
+  <!-- ======== STEP 2: CHECKOUT ======== -->
+  <div id="step-checkout" class="hidden">
+    <div class="flex-between" style="margin-bottom:1rem;">
+      <div>
+        <h1>Checkout Test</h1>
+        <p class="subtitle" style="margin-bottom:0;">
+          Logged in as <strong id="lbl-name">—</strong>
+          <span class="badge badge-blue" id="lbl-provider" style="margin-left:.5rem;"></span>
+        </p>
+      </div>
+      <button class="btn-sm btn-danger" onclick="doLogout()">Log Out</button>
+    </div>
+
+    <div id="status-bar" class="status-bar disconnected">Checking gateway...</div>
+
+    <!-- Billings table -->
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:.75rem;">
+        <h2 style="margin-bottom:0;">Unpaid Billings</h2>
+        <button class="btn-sm btn-primary" onclick="loadBillings()">Refresh</button>
+      </div>
+      <div id="billings-area">
+        <p style="color:var(--muted);font-size:.85rem;">Loading...</p>
+      </div>
+    </div>
+
+    <!-- Checkout form -->
+    <div class="card">
+      <h2>Create Checkout</h2>
+      <label for="sel-billing">Billing</label>
+      <select id="sel-billing"><option value="">Select a billing...</option></select>
+
+      <label for="sel-method">Payment Method</label>
+      <select id="sel-method">
+        <option value="gcash">GCash</option>
+        <option value="maya">Maya</option>
+        <option value="card">Card</option>
+        <option value="grab_pay">GrabPay</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label for="inp-success-url">Success URL</label>
+          <input id="inp-success-url" type="text" value="" />
+        </div>
+        <div>
+          <label for="inp-cancel-url">Cancel URL</label>
+          <input id="inp-cancel-url" type="text" value="" />
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-checkout" onclick="doCheckout()" disabled>
+        Create Checkout Session
+      </button>
+    </div>
+
+    <!-- Verify -->
+    <div class="card" id="verify-card" style="display:none;">
+      <div class="flex-between" style="margin-bottom:.75rem;">
+        <h2 style="margin-bottom:0;">Last Checkout</h2>
+        <button class="btn-sm btn-success" onclick="doVerify()">Verify Status</button>
+      </div>
+      <table>
+        <tr><th>Checkout ID</th><td id="v-checkout-id">—</td></tr>
+        <tr><th>Provider</th><td id="v-provider">—</td></tr>
+        <tr><th>Payment ID</th><td id="v-payment-id">—</td></tr>
+        <tr><th>Status</th><td id="v-status">—</td></tr>
+        <tr><th>Checkout URL</th><td id="v-url">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Log -->
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:.75rem;">
+        <h2 style="margin-bottom:0;">Request Log</h2>
+        <button class="btn-sm btn-danger" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="log-box" id="log"></div>
+    </div>
+  </div>
+
+<script>
+  // ── State ──
+  let apiBase = '';
+  let token = '';
+  let billings = [];
+  let lastCheckout = null;
+
+  // ── Helpers ──
+  const $ = (id) => document.getElementById(id);
+  const show = (id) => $(id).classList.remove('hidden');
+  const hide = (id) => $(id).classList.add('hidden');
+
+  function log(level, msg) {
+    const el = $('log');
+    const t = new Date().toLocaleTimeString();
+    const cls = { info: 'info', ok: 'ok', err: 'err', warn: 'warn' }[level] || '';
+    el.innerHTML += `<span class="time">[${t}]</span> <span class="${cls}">${escHtml(msg)}</span>\n`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function clearLog() { $('log').innerHTML = ''; }
+
+  async function api(method, path, body) {
+    const url = `${apiBase}${path}`;
+    const opts = {
+      method,
+      headers: { 'Authorization': `Bearer ${token}` },
+    };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+
+    log('info', `${method} ${path}`);
+    if (body) log('info', `  body: ${JSON.stringify(body, null, 2)}`);
+
+    const res = await fetch(url, opts);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const errMsg = data.error || JSON.stringify(data) || res.statusText;
+      log('err', `  ${res.status} - ${errMsg}`);
+      throw new Error(errMsg);
+    }
+
+    log('ok', `  ${res.status} OK`);
+    return data;
+  }
+
+  // ── Login ──
+  async function doLogin() {
+    $('login-error').textContent = '';
+    apiBase = $('api-base').value.replace(/\/+$/, '');
+    const serial = $('serial').value.trim();
+    const pw = $('password').value;
+
+    if (!serial || !pw) {
+      $('login-error').textContent = 'Enter serial number and password.';
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/v1/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial_number: serial, password: pw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+
+      token = data.token;
+      enterCheckout(data);
+    } catch (e) {
+      $('login-error').textContent = e.message;
+    }
+  }
+
+  function useRawToken() {
+    apiBase = $('api-base').value.replace(/\/+$/, '');
+    const t = $('raw-token').value.trim();
+    if (!t) { $('login-error').textContent = 'Paste a token first.'; return; }
+    token = t;
+    enterCheckout({});
+  }
+
+  async function enterCheckout(loginData) {
+    hide('step-login');
+    show('step-checkout');
+
+    // Set default redirect URLs
+    const baseUrl = window.location.origin + window.location.pathname;
+    $('inp-success-url').value = baseUrl + '?result=success';
+    $('inp-cancel-url').value = baseUrl + '?result=cancelled';
+
+    // Fetch user info
+    try {
+      const me = await api('GET', '/api/v1/session/me');
+      const u = me.data || me;
+      $('lbl-name').textContent = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Subscriber';
+    } catch {
+      $('lbl-name').textContent = loginData.subscriber?.first_name || 'Subscriber';
+    }
+
+    checkGatewayStatus();
+    loadBillings();
+  }
+
+  function doLogout() {
+    token = '';
+    billings = [];
+    lastCheckout = null;
+    hide('step-checkout');
+    show('step-login');
+  }
+
+  // ── Gateway status ──
+  async function checkGatewayStatus() {
+    const bar = $('status-bar');
+    try {
+      // Simple health check — if the server responds, we're good
+      await api('GET', '/up');
+      bar.className = 'status-bar connected';
+      bar.textContent = 'Backend connected — gateway ready';
+      $('lbl-provider').textContent = 'via ENV config';
+    } catch {
+      bar.className = 'status-bar disconnected';
+      bar.textContent = 'Cannot reach backend';
+    }
+  }
+
+  // ── Billings ──
+  async function loadBillings() {
+    const area = $('billings-area');
+    const sel = $('sel-billing');
+    area.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">Loading...</p>';
+
+    try {
+      const res = await api('GET', '/api/v1/billings?status=unpaid,overdue&per_page=50');
+      billings = res.data || [];
+
+      if (billings.length === 0) {
+        area.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">No unpaid billings found.</p>';
+        sel.innerHTML = '<option value="">No billings available</option>';
+        $('btn-checkout').disabled = true;
+        return;
+      }
+
+      let html = '<table><tr><th>ID</th><th>Period</th><th>Amount</th><th>Due</th><th>Status</th></tr>';
+      sel.innerHTML = '<option value="">Select a billing...</option>';
+
+      for (const b of billings) {
+        const statusBadge = b.status === 'overdue'
+          ? '<span class="badge badge-red">Overdue</span>'
+          : '<span class="badge badge-yellow">Unpaid</span>';
+
+        html += `<tr>
+          <td>#${b.id}</td>
+          <td>${b.start_date} — ${b.end_date}</td>
+          <td><strong>PHP ${Number(b.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong></td>
+          <td>${b.due_date}</td>
+          <td>${statusBadge}</td>
+        </tr>`;
+
+        sel.innerHTML += `<option value="${b.id}">#${b.id} — ${b.start_date} to ${b.end_date} (PHP ${Number(b.amount).toFixed(2)})</option>`;
+      }
+
+      html += '</table>';
+      area.innerHTML = html;
+
+      sel.onchange = () => { $('btn-checkout').disabled = !sel.value; };
+
+    } catch (e) {
+      area.innerHTML = `<p style="color:var(--danger);font-size:.85rem;">${escHtml(e.message)}</p>`;
+    }
+  }
+
+  // ── Checkout ──
+  async function doCheckout() {
+    const billingId = $('sel-billing').value;
+    const method = $('sel-method').value;
+    const successUrl = $('inp-success-url').value.trim();
+    const cancelUrl = $('inp-cancel-url').value.trim();
+
+    if (!billingId) { log('warn', 'Select a billing first.'); return; }
+    if (!successUrl || !cancelUrl) { log('warn', 'success_url and cancel_url are required.'); return; }
+
+    try {
+      const res = await api('POST', '/api/v1/checkouts', {
+        billing_id: Number(billingId),
+        payment_method: method,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+
+      lastCheckout = res.data;
+      log('ok', `Checkout created! URL: ${lastCheckout.checkout_url}`);
+
+      // Show verify card
+      const vc = $('verify-card');
+      vc.style.display = '';
+      $('v-checkout-id').textContent = lastCheckout.checkout_id;
+      $('v-provider').textContent = lastCheckout.provider;
+      $('v-payment-id').textContent = lastCheckout.payment_id;
+      $('v-status').innerHTML = '<span class="badge badge-yellow">Processing</span>';
+
+      if (lastCheckout.checkout_url) {
+        $('v-url').innerHTML = `<a href="${escHtml(lastCheckout.checkout_url)}" target="_blank" rel="noopener">${escHtml(lastCheckout.checkout_url)}</a>`;
+      } else {
+        $('v-url').textContent = 'No URL returned (check log)';
+      }
+
+    } catch (e) {
+      log('err', `Checkout failed: ${e.message}`);
+    }
+  }
+
+  // ── Verify ──
+  async function doVerify() {
+    if (!lastCheckout) { log('warn', 'No checkout to verify.'); return; }
+
+    try {
+      const res = await api('GET', `/api/v1/checkouts/${lastCheckout.checkout_id}/verify`);
+      const d = res.data;
+
+      const badgeClass = d.status === 'Completed' ? 'badge-green'
+                       : d.status === 'Failed' ? 'badge-red'
+                       : 'badge-yellow';
+
+      $('v-status').innerHTML = `<span class="badge ${badgeClass}">${escHtml(d.status)}</span> <span style="color:var(--muted);font-size:.8rem;">(gateway: ${escHtml(d.gateway_status)})</span>`;
+      log('ok', `Payment #${d.payment_id}: ${d.status} (gateway: ${d.gateway_status})`);
+    } catch (e) {
+      log('err', `Verify failed: ${e.message}`);
+    }
+  }
+
+  // ── On load: check for redirect result ──
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('result');
+    if (result) {
+      document.title = `Payment ${result}`;
+      document.body.innerHTML = `
+        <div class="card" style="text-align:center;padding:3rem;">
+          <h1 style="margin-bottom:.5rem;">${result === 'success' ? 'Payment Successful' : 'Payment Cancelled'}</h1>
+          <p style="color:var(--muted);margin-bottom:1.5rem;">
+            ${result === 'success'
+              ? 'The payment gateway reported success. The webhook will confirm the final status.'
+              : 'You cancelled the payment. No charge was made.'}
+          </p>
+          <button class="btn-primary" style="width:auto;" onclick="window.location.href=window.location.pathname">
+            Back to Test Page
+          </button>
+        </div>`;
+    }
+  })();
+</script>
+
+</body>
+</html>
