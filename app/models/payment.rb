@@ -7,13 +7,13 @@ class Payment < ApplicationRecord
   validates :payment_method,
             presence: true,
             inclusion: {
-              in: ["GCash", "Cash", "Bank Transfer"],
+              in: [ "GCash", "Cash", "Bank Transfer" ],
               message: "%{value} is not a valid payment method"
             }
   validates :status,
             presence: true,
             inclusion: {
-              in: ["Processing", "Completed", "Failed"],
+              in: [ "Processing", "Completed", "Failed" ],
               message: "%{value} is not a valid status"
             }
   validates :attachment, presence: true
