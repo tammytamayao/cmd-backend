@@ -1,82 +1,77 @@
-# app/controllers/api/admin/payments_controller.rb
 class Api::Admin::PaymentsController < ApplicationController
   before_action :authenticate_admin!
 
-  PER_PAGE           = 10
+  PER_PAGE = 10
 
-# GET /api/admin/payments
-def index
-  Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
+  # GET /api/admin/payments
+  def index
+    Rails.logger.info("[ADMIN] #{current_admin.email} listing payments")
 
-  payments = Payment
-    .includes(billing: :subscriber) # avoid N+1 in serialize_payment
-    .joins(billing: :subscriber)    # allow filtering on subscribers columns
-    .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
+    payments = Payment
+      .includes(billing: :subscriber)
+      .joins(billing: :subscriber)
+      .order(Arel.sql("payment_date DESC NULLS LAST"), id: :desc)
 
-  # ---- Optional date filters (only when provided) ----
-  if params[:year].present?
-    y = params[:year].to_i
-    from = Date.new(y, 1, 1)
-    to   = Date.new(y, 12, 31)
-    payments = payments.where(payment_date: from..to)
+    if params[:year].present?
+      y = params[:year].to_i
+      from = Date.new(y, 1, 1)
+      to   = Date.new(y, 12, 31)
+      payments = payments.where(payment_date: from..to)
 
-  elsif params[:start_year].present? || params[:end_year].present?
-    start_year = params[:start_year].present? ? params[:start_year].to_i : 1900
-    end_year   = params[:end_year].present?   ? params[:end_year].to_i   : Date.current.year
+    elsif params[:start_year].present? || params[:end_year].present?
+      start_year = params[:start_year].present? ? params[:start_year].to_i : 1900
+      end_year   = params[:end_year].present? ? params[:end_year].to_i : Date.current.year
 
-    from = Date.new(start_year, 1, 1)
-    to   = Date.new(end_year, 12, 31)
-    payments = payments.where(payment_date: from..to)
-  end
+      from = Date.new(start_year, 1, 1)
+      to   = Date.new(end_year, 12, 31)
+      payments = payments.where(payment_date: from..to)
+    end
 
-  # ---- Optional filters ----
-  if params[:status].present?
-    payments = payments.where(status: params[:status])
-  end
+    if params[:status].present?
+      payments = payments.where(status: params[:status])
+    end
 
-  if params[:payment_method].present?
-    pm = params[:payment_method].to_s.downcase
-    payments = payments.where("LOWER(payments.payment_method) = ?", pm)
-  end
+    if params[:payment_method].present?
+      pm = params[:payment_method].to_s.downcase
+      payments = payments.where("LOWER(payments.payment_method) = ?", pm)
+    end
 
-  # ---- Search (q) across payments + subscriber (SQLite-safe) ----
-  if params[:q].present?
-    q = params[:q].to_s.strip
-    escaped = ActiveRecord::Base.sanitize_sql_like(q.downcase)
-    like = "%#{escaped}%"
+    if params[:q].present?
+      q = params[:q].to_s.strip
+      escaped = ActiveRecord::Base.sanitize_sql_like(q.downcase)
+      like = "%#{escaped}%"
 
-    payments = payments.where(
-      <<~SQL,
-        LOWER(CAST(payments.id AS TEXT)) LIKE :like
-        OR LOWER(payments.invoice_number) LIKE :like
-        OR LOWER(payments.reference_number) LIKE :like
-        OR LOWER(payments.payment_method) LIKE :like
-        OR LOWER(payments.status) LIKE :like
-        OR LOWER(subscribers.serial_number) LIKE :like
-        OR LOWER(subscribers.first_name) LIKE :like
-        OR LOWER(subscribers.last_name) LIKE :like
-      SQL
-      like: like
-    )
-  end
+      payments = payments.where(
+        <<~SQL,
+          LOWER(CAST(payments.id AS TEXT)) LIKE :like
+          OR LOWER(payments.invoice_number) LIKE :like
+          OR LOWER(payments.reference_number) LIKE :like
+          OR LOWER(payments.payment_method) LIKE :like
+          OR LOWER(payments.status) LIKE :like
+          OR LOWER(subscribers.serial_number) LIKE :like
+          OR LOWER(subscribers.first_name) LIKE :like
+          OR LOWER(subscribers.last_name) LIKE :like
+        SQL
+        like: like
+      )
+    end
 
-  # ---- Pagination ----
-  page     = (params[:page].presence || 1).to_i
-  per_page = PER_PAGE
+    page     = (params[:page].presence || 1).to_i
+    per_page = PER_PAGE
 
-  total = payments.count
-  payments = payments.offset((page - 1) * per_page).limit(per_page)
+    total = payments.count
+    payments = payments.offset((page - 1) * per_page).limit(per_page)
 
-  render json: {
-    data: payments.map { |p| serialize_payment(p) },
-    meta: {
-      page:        page,
-      per_page:    per_page,
-      total:       total,
-      total_pages: (total / per_page.to_f).ceil
+    render json: {
+      data: payments.map { |p| serialize_payment(p) },
+      meta: {
+        page: page,
+        per_page: per_page,
+        total: total,
+        total_pages: (total / per_page.to_f).ceil
+      }
     }
-  }
-end
+  end
 
   # GET /api/admin/payments/:id
   def show
@@ -88,14 +83,11 @@ end
     receipt_url = nil
     if payment.attachment.present?
       signed = S3Helper.generate_signed_url(payment.attachment)
-      # S3Helper.generate_signed_url returns { success:, url:, expires_at: }
       receipt_url = signed[:url] if signed[:success]
     end
 
     render json: {
-      data: serialize_payment(payment).merge(
-        receipt_url: receipt_url
-      )
+      data: serialize_payment(payment).merge(receipt_url: receipt_url)
     }, status: :ok
   end
 
@@ -106,48 +98,41 @@ end
     billing = Billing.find_by(id: params[:billing_id])
     return render json: { error: "Billing not found" }, status: :not_found unless billing
 
-    # Validate receipt file is provided
     receipt_file = params[:receipt]
-    if receipt_file.nil?
-      return render json: { error: "Receipt file is required" }, status: :bad_request
-    end
+    return render json: { error: "Receipt file is required" }, status: :bad_request if receipt_file.nil?
 
     kind = params[:payment_method].to_s.upcase
     method_label =
       case kind
-      when "GCASH"         then "GCash"
+      when "GCASH" then "GCash"
       when "BANK_TRANSFER" then "Bank Transfer"
-      when "CASH"          then "Cash"
+      when "CASH" then "Cash"
       else
         "Cash"
       end
 
-    # Upload receipt to S3
     upload_result = S3Helper.upload_receipt(receipt_file, billing.id)
-
-    unless upload_result[:success]
-      return render json: { error: upload_result[:error] }, status: :bad_request
-    end
+    return render json: { error: upload_result[:error] }, status: :bad_request unless upload_result[:success]
 
     payment = Payment.new(
-      billing_id:          billing.id,
-      payment_date:        Time.zone.today,
-      amount:              billing.amount,
-      status:              "Processing",
-      payment_method:      method_label,
-      reference_number:    params[:gcash_reference].presence || params[:reference_number],
-      invoice_number:      params[:invoice_number],
-      attachment:          upload_result[:s3_key],
-      receipt_filename:    upload_result[:filename],
-      receipt_size:        upload_result[:size],
-      receipt_mime_type:   upload_result[:mime_type],
+      billing_id: billing.id,
+      payment_date: Time.zone.today,
+      amount: billing.amount,
+      status: params[:status].presence || "Processing",
+      payment_method: method_label,
+      reference_number: params[:gcash_reference].presence || params[:reference_number],
+      invoice_number: params[:invoice_number],
+      attachment: upload_result[:s3_key],
+      receipt_filename: upload_result[:filename],
+      receipt_size: upload_result[:size],
+      receipt_mime_type: upload_result[:mime_type],
       receipt_uploaded_at: upload_result[:uploaded_at]
     )
 
     if payment.save
       render json: { data: serialize_payment(payment) }, status: :created
     else
-      S3Helper.delete(upload_result[:s3_key])
+      S3Helper.delete(upload_result[:s3_key]) if upload_result[:s3_key].present?
       render json: { error: payment.errors.full_messages.to_sentence }, status: :unprocessable_entity
     end
   end
@@ -189,13 +174,11 @@ end
     payment = Payment.find_by(id: params[:id])
     return render json: { error: "Payment not found" }, status: :not_found unless payment
 
-    # Best effort: delete receipt in S3 if present
     if payment.attachment.present?
       begin
         S3Helper.delete(payment.attachment)
       rescue => e
         Rails.logger.warn("[ADMIN] Failed to delete S3 receipt for payment #{payment.id}: #{e.class} #{e.message}")
-        # We intentionally do NOT block deletion if S3 deletion fails
       end
     end
 
@@ -206,38 +189,37 @@ end
     end
   end
 
-
   private
 
   def serialize_payment(p)
     subscriber = p.billing&.subscriber
 
     {
-      id:               p.id,
-      payment_date:     p.payment_date,
-      amount:           p.amount.to_f,
-      payment_method:   p.payment_method,
-      status:           p.status,
-      attachment:       p.attachment,
+      id: p.id,
+      payment_date: p.payment_date,
+      amount: p.amount.to_f,
+      payment_method: p.payment_method,
+      status: p.status,
+      attachment: p.attachment,
       reference_number: p.reference_number,
-      invoice_number:   p.invoice_number,
+      invoice_number: p.invoice_number,
 
-      billing_id:           p.billing_id,
+      billing_id: p.billing_id,
       billing_period_start: p.billing&.start_date,
-      billing_period_end:   p.billing&.end_date,
-      billing_status:       p.billing&.status,
+      billing_period_end: p.billing&.end_date,
+      billing_status: p.billing&.status,
 
       subscriber: {
-        id:            subscriber&.id,
+        id: subscriber&.id,
         serial_number: subscriber&.serial_number,
-        first_name:    subscriber&.first_name,
-        last_name:     subscriber&.last_name
+        first_name: subscriber&.first_name,
+        last_name: subscriber&.last_name
       },
 
       receipt: {
-        filename:    p.receipt_filename,
-        size:        p.receipt_size,
-        mime_type:   p.receipt_mime_type,
+        filename: p.receipt_filename,
+        size: p.receipt_size,
+        mime_type: p.receipt_mime_type,
         uploaded_at: p.receipt_uploaded_at
       }
     }
