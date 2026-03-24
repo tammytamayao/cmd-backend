@@ -24,10 +24,13 @@ class Api::V1::SessionsController < ApplicationController
     end
   end
 
-
   def show
     s = current_subscriber
+
     latest_billing = s.billings.order(start_date: :desc).first
+
+    unpaid_billings = s.billings.where.not(status: "paid")
+    total_amount_due = unpaid_billings.sum(:amount).to_f
 
     render json: {
       id: s.id,
@@ -42,7 +45,7 @@ class Api::V1::SessionsController < ApplicationController
       package: s.package,
       package_speed: s.package_speed,
       serial_number: s.serial_number,
-      amount_due: latest_billing&.amount&.to_f || 0,
+      amount_due: total_amount_due,
       due_on: latest_billing&.due_date,
       latest_billing: latest_billing ? {
         id: latest_billing.id,
