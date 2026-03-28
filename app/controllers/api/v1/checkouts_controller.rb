@@ -26,7 +26,11 @@ class Api::V1::CheckoutsController < ApplicationController
       return render json: { error: "success_url and cancel_url are required" }, status: :bad_request
     end
 
-    gateway = PaymentGateway::Factory.current
+    gateway = if Rails.env.development? && params[:gateway].present?
+                PaymentGateway::Factory.build(params[:gateway])
+              else
+                PaymentGateway::Factory.current
+              end
 
     unless gateway.supported_methods.include?(payment_method)
       return render json: {
