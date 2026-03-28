@@ -33,3 +33,11 @@
 /config/master.key
 db/*.sqlite3*
 config/credentials*
+
+# Ignore SSH keys.
+/.ssh/
+
+# Ignore local dev files.
+/Dockerfile.dev
+/bin/docker-dev-entrypoint
+/public/test_payment.html
