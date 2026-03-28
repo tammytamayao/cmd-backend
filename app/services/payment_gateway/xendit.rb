@@ -24,37 +24,27 @@ module PaymentGateway
         external_id: "billing-#{billing.id}-#{Time.current.to_i}",
         amount: billing.amount.to_f,
         currency: "PHP",
-        payment_method: {
-          type: "EWALLET",
-          ewallet: {
-            channel_code: channel,
-            channel_properties: {
-              success_redirect_url: success_url,
-              failure_redirect_url: cancel_url
-            }
-          },
-          reusability: "ONE_TIME_USE"
-        },
+        description: "Payment for billing ##{billing.id} (#{billing.start_date} - #{billing.end_date})",
+        payment_methods: [channel],
+        success_redirect_url: success_url,
+        failure_redirect_url: cancel_url,
         metadata: {
           billing_id: billing.id.to_s,
           subscriber_id: billing.subscriber_id.to_s
         }
       }
 
-      response = post("/v2/payment_requests", body)
-
-      checkout_url = response.dig("actions", 0, "url") ||
-                     response.dig("actions", 0, "mobile_web_checkout_url")
+      response = post("/v2/invoices", body)
 
       {
         checkout_id: response["id"],
-        checkout_url: checkout_url,
+        checkout_url: response["invoice_url"],
         provider: provider_name
       }
     end
 
     def verify_payment(gateway_payment_id:)
-      response = get("/v2/payment_requests/#{gateway_payment_id}")
+      response = get("/v2/invoices/#{gateway_payment_id}")
 
       {
         status: map_status(response["status"]),
@@ -134,8 +124,7 @@ module PaymentGateway
 
     def map_status(status)
       case status&.upcase
-      when "SUCCEEDED", "COMPLETED", "PAID" then "completed"
-      when "FAILED" then "failed"
+      when "PAID", "SETTLED" then "completed"
       when "EXPIRED" then "expired"
       else "pending"
       end
@@ -143,8 +132,8 @@ module PaymentGateway
 
     def map_webhook_status(event_or_status)
       case event_or_status
-      when "payment.succeeded", "SUCCEEDED", "COMPLETED", "PAID" then "completed"
-      when "payment.failed", "FAILED" then "failed"
+      when "invoices.paid", "PAID", "SETTLED" then "completed"
+      when "invoices.expired", "EXPIRED" then "expired"
       else "pending"
       end
     end
